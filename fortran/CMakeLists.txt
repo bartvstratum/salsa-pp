@@ -37,6 +37,31 @@ set_source_files_properties(driver/util.f90 PROPERTIES COMPILE_OPTIONS "${warnin
 set_target_properties(uclales_salsa PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 target_include_directories(uclales_salsa PUBLIC ${CMAKE_BINARY_DIR}/modules)
 
-add_executable(salsa_0d driver/salsa_0d.f90)
+# SALSA++ git commit at configure time, written into the output files. Untracked files do not count as dirty.
+find_package(Git QUIET)
+set(GIT_COMMIT "unknown")
+if (GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} OUTPUT_VARIABLE GIT_COMMIT
+        OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    execute_process(COMMAND ${GIT_EXECUTABLE} status --porcelain --untracked-files=no
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} OUTPUT_VARIABLE GIT_STATUS
+        OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if (NOT "${GIT_STATUS}" STREQUAL "")
+        set(GIT_COMMIT "${GIT_COMMIT}-dirty")
+    endif()
+endif()
+configure_file(driver/salsa_0d_version.f90.in ${CMAKE_BINARY_DIR}/generated/salsa_0d_version.f90 @ONLY)
+
+# NetCDF-Fortran for the driver's input and output.
+execute_process(COMMAND nf-config --includedir OUTPUT_VARIABLE NETCDF_FORTRAN_INCLUDE OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_library(NETCDF_FORTRAN_LIB netcdff REQUIRED)
+find_library(NETCDF_C_LIB netcdf REQUIRED)
+
+add_executable(salsa_0d
+    driver/salsa_0d.f90
+    driver/salsa_0d_io.f90
+    ${CMAKE_BINARY_DIR}/generated/salsa_0d_version.f90)
 target_compile_options(salsa_0d PRIVATE ${upstream_flags} ${warning_flags})
-target_link_libraries(salsa_0d PRIVATE uclales_salsa)
+target_include_directories(salsa_0d PRIVATE ${NETCDF_FORTRAN_INCLUDE})
+target_link_libraries(salsa_0d PRIVATE uclales_salsa ${NETCDF_FORTRAN_LIB} ${NETCDF_C_LIB})
