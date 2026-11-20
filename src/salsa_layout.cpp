@@ -57,6 +57,18 @@ namespace
             {"H2O", 1._tf}};
 
 
+    // Fortran: classSpecies.f90: allNamesSoluble
+    const std::map<std::string, bool> solubles = {
+            {"SO4", true},
+            {"OC", true},
+            {"BC", false},
+            {"DU", false},
+            {"SS", true},
+            {"NO", true},
+            {"NH", true},
+            {"H2O", false}};
+
+
     // Fortran: mo_salsa_init.f90: set_aerobins (part)
     // Logarithmically spaced bins between two diameters.
     void set_log_bins(
@@ -163,8 +175,17 @@ namespace Salsa
         set_geometric_bins(volume_low, volume_high, rain_diameter_low, rain_volume_ratio, rain_start, n_bins_rain);
 
         // Fortran: mo_salsa_init.f90: set_aerobins (part)
+        volume_ratio_low.resize(n_bins);
+        volume_ratio_high.resize(n_bins);
+
         for (int b=0; b<n_bins; ++b)
+        {
             diameter_mid[b] = std::pow((volume_high[b] + volume_low[b])/(2._tf*pi6), 1._tf/3._tf);
+
+            const TF d = diameter_mid[b];
+            volume_ratio_high[b] = volume_high[b]/(pi6*(d*d*d));
+            volume_ratio_low[b] = volume_low[b]/(pi6*(d*d*d));
+        }
 
         // Fortran: mo_salsa_init.f90: set_aerobins (part), set_cloudbins (part)
         number_limit.assign(n_bins, nlim);
@@ -190,6 +211,7 @@ namespace Salsa
             density.push_back(rho->second);
             molar_mass.push_back(molar_masses.at(name));
             dissociation.push_back(dissociations.at(name));
+            soluble.push_back(solubles.at(name));
         }
 
         n_fields = n_bins * (1 + n_species) + Gas::count;

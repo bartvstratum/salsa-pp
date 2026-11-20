@@ -86,6 +86,9 @@ namespace Salsa
             Array_1d<TF> number_limit;
             Array_1d<TF> diameter_limit;
             Array_1d<TF> dissociation;
+            Array_1d<TF> volume_ratio_low;
+            Array_1d<TF> volume_ratio_high;
+            Array_1d<bool> soluble;
 
             const int coagulation_mode;
             const int autoconversion_mode;

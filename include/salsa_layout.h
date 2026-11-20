@@ -96,6 +96,8 @@ namespace Salsa
             std::vector<TF> volume_low;                     // Fortran: vlolim
             std::vector<TF> volume_high;                    // Fortran: vhilim
             std::vector<TF> diameter_mid;                   // Fortran: dmid
+            std::vector<TF> volume_ratio_low;               // Volume limits relative to the centre volume; Fortran: vratiolo
+            std::vector<TF> volume_ratio_high;              // Fortran: vratiohi
             std::vector<TF> number_limit;                   // Fortran: nlim
             std::vector<TF> diameter_limit;                 // Maximum wet diameter (m); Fortran: dlim
 
@@ -104,6 +106,7 @@ namespace Salsa
             std::vector<TF> density;                        // Fortran: rholiq
             std::vector<TF> molar_mass;                     // Fortran: MM
             std::vector<TF> dissociation;                   // Fortran: diss
+            std::vector<bool> soluble;
 
             int n_bins;
             int n_species;

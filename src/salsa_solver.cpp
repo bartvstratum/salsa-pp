@@ -6,12 +6,14 @@
  * The solver: one SALSA step for all grid points.
  */
 
+#include <stdexcept>
 #include <vector>
 
 #include "salsa_solver.h"
 #include "salsa_constants.h"
 #include "salsa_properties_kernels.h"
 #include "salsa_condensation_kernels.h"
+#include "salsa_activation_kernels.h"
 
 
 namespace
@@ -87,12 +89,23 @@ namespace Salsa
         iss(species_index(layout.species, "SS")),
         iwa(species_index(layout.species, "H2O"))
     {
+        if (coagulation_mode != 1 || autoconversion_mode != 1 || activation_mode != 1)
+            throw std::runtime_error("Only mode 1 is supported for coagulation, autoconversion and activation");
+
         density = to_device("density", layout.density);
         molar_mass = to_device("molar_mass", layout.molar_mass);
         diameter_mid = to_device("diameter_mid", layout.diameter_mid);
         number_limit = to_device("number_limit", layout.number_limit);
         diameter_limit = to_device("diameter_limit", layout.diameter_limit);
         dissociation = to_device("dissociation", layout.dissociation);
+        volume_ratio_low = to_device("volume_ratio_low", layout.volume_ratio_low);
+        volume_ratio_high = to_device("volume_ratio_high", layout.volume_ratio_high);
+
+        soluble = Array_1d<bool>("soluble", layout.soluble.size());
+        auto soluble_h = Kokkos::create_mirror_view(soluble);
+        for (size_t s=0; s<layout.soluble.size(); ++s)
+            soluble_h(s) = layout.soluble[s];
+        Kokkos::deep_copy(soluble, soluble_h);
     }
 
 
@@ -127,8 +140,12 @@ namespace Salsa
         const int aer_1a_start = layout.aer_1a_start;
         const int aer_1a_end = layout.aer_1a_end;
         const int aer_2a_start = layout.aer_2a_start;
+        const int aer_2a_end = layout.aer_2a_end;
+        const int aer_2b_start = layout.aer_2b_start;
         const int aer_2b_end = layout.aer_2b_end;
         const int cld_a_start = layout.cld_a_start;
+        const int cld_a_end = layout.cld_a_end;
+        const int cld_b_start = layout.cld_b_start;
         const int cld_b_end = layout.cld_b_end;
         const int rain_start = layout.rain_start;
         const int rain_end = layout.rain_end;
@@ -151,6 +168,9 @@ namespace Salsa
         const Array_1d<TF> number_limit = this->number_limit;
         const Array_1d<TF> diameter_limit = this->diameter_limit;
         const Array_1d<TF> dissociation = this->dissociation;
+        const Array_1d<TF> volume_ratio_low = this->volume_ratio_low;
+        const Array_1d<TF> volume_ratio_high = this->volume_ratio_high;
+        const Array_1d<bool> soluble = this->soluble;
 
         Kokkos::parallel_for("salsa_exec",
                 Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
@@ -284,23 +304,62 @@ namespace Salsa
                                     rain_end);
                     }
 
-                    // The other processes come here (step 6c on).
+                    // Fortran: mo_salsa_cloud.f90: cloud_activation
+                    if (do_activation)
+                        activate(
+                                number,
+                                volume,
+                                diameter_mid,
+                                number_limit,
+                                volume_ratio_low,
+                                volume_ratio_high,
+                                soluble,
+                                T_ijk,
+                                rv_ijk,
+                                rs_ijk,
+                                iwa,
+                                n_species,
+                                aer_1a_start,
+                                aer_2a_start,
+                                aer_2a_end,
+                                aer_2b_start,
+                                aer_2b_end,
+                                cld_a_start,
+                                cld_a_end,
+                                cld_b_start,
+                                cld_b_end);
+
+                    // The other processes come here (step 6d on).
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
+                    // Fortran: constrain_SALSA.f90: tend_constrain2
+                    // The change as a tendency, applied as in UCLALES-SALSA: a step lowers a field to at most 1e-8 of its
+                    // old value, and the initialisation clips at zero instead.
+                    auto update = [&](const int n, const TF value)
+                    {
+                        const TF old = fields(n, k, j, i);
+                        const TF tendency = (value - old)/dt;
+
+                        if (initialize)
+                            fields(n, k, j, i) = Kokkos::max(old + dt*tendency, 0._tf);
+                        else
+                            fields(n, k, j, i) = old + dt*Kokkos::max((-1._tf + 1.e-8_tf)*old/dt, tendency);
+                    };
+
                     for (int b=0; b<n_bins; ++b)
                     {
                         for (int s=0; s<n_species; ++s)
-                            fields(mass_field(b, s, n_species), k, j, i) = volume[b][s]*density(s)/rho_ijk;
+                            update(mass_field(b, s, n_species), volume[b][s]*density(s)/rho_ijk);
 
-                        fields(number_field(b, n_species), k, j, i) = number[b]/rho_ijk;
+                        update(number_field(b, n_species), number[b]/rho_ijk);
                         diameter_wet(b, k, j, i) = d_wet[b];
                     }
 
                     if (do_condense_gases)
                         for (int g=0; g<Gas::count; ++g)
-                            fields(gas_field(g, n_bins, n_species), k, j, i) = gas[g]/rho_ijk;
+                            update(gas_field(g, n_bins, n_species), gas[g]/rho_ijk);
 
-                    rv(k, j, i) += rv_ijk - rv_old;
+                    rv(k, j, i) += dt*((rv_ijk - rv_old)/dt);
                 });
     }
 }
