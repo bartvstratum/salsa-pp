@@ -3,11 +3,26 @@ C++/Kokkos port of the sectional aerosol–cloud–precipitation microphysics SA
 
 Licence: Apache 2.0, except the vendored third-party code in `fortran/`, which keeps its own licence (see the README in each directory there).
 
-## Fortran reference
-Requires gfortran, CMake and NetCDF-Fortran. From the repository root:
+## SALSA++
+Requires a C++20 compiler and CMake ≥ 3.20. Kokkos is a submodule (`git submodule update --init`). System settings are in `config/<system>.cmake`, as in MicroHH:
 
-    cmake -S fortran -B build/fortran
-    cmake --build build/fortran -j
+    mkdir -p build/cpu
+    cd build/cpu
+    cmake ../.. -DSYST=ubuntu_22lts_gcc
+    make -j
+    ./main_cpp/salsa_test
+
+One build directory per configuration, e.g. `build/gpu_sp` with `cmake ../.. -DSYST=ubuntu_22lts_gcc -DUSEGPU=1 -DUSESP=1`.
+
+Options: `-DUSESP=1` for single precision, `-DUSEGPU=1` for GPU. With CUDA, Kokkos needs nvcc ≥ 12.2, first in `PATH` or via `CUDA_ROOT` (e.g. `CUDA_ROOT=/usr/local/cuda`).
+
+## Fortran reference
+Requires gfortran, CMake and NetCDF-Fortran:
+
+    mkdir -p build/fortran
+    cd build/fortran
+    cmake ../../fortran
+    make -j
 
 ## Reference cases
 The case inputs are created with Python:
