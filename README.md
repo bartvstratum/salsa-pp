@@ -1,6 +1,8 @@
 # SALSA++
 C++/Kokkos port of the sectional aerosol–cloud–precipitation microphysics SALSA (Sectional Aerosol module for Large Scale Applications), as extended in UCLALES-SALSA.
 
+> Most of the Fortran → C++/Kokkos translation was done by Claude Opus 5.5 under human supervision. Results from the old and new code were compared at each step and typically matched to floating-point precision. Several issues found in the original Fortran were fixed in both versions (CHANGES.md), keeping the Fortran/C++ tests reproducible. The design differs substantially from the original, targeting performance on CPUs and GPUs, with support for single precision.
+
 Licence: Apache 2.0, except the vendored third-party code in `fortran/`, which keeps its own licence (see the README in each directory there).
 
 ## SALSA++
