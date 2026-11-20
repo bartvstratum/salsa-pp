@@ -142,6 +142,11 @@ namespace Salsa
         for (int b=0; b<n_bins; ++b)
             diameter_mid[b] = std::pow((volume_high[b] + volume_low[b])/(2._tf*pi6), 1._tf/3._tf);
 
+        // Fortran: mo_salsa_init.f90: set_aerobins (part), set_cloudbins (part)
+        number_limit.assign(n_bins, nlim);
+        for (int b=rain_start; b<rain_end; ++b)
+            number_limit[b] = prlim;
+
         species = dry_species;
         species.push_back("H2O");
         n_species = static_cast<int>(species.size());
@@ -156,5 +161,10 @@ namespace Salsa
         }
 
         n_fields = n_bins * (1 + n_species) + n_gases;
+
+        if (n_bins > max_bins)
+            throw std::runtime_error("More bins than max_bins in salsa_types.h");
+        if (n_species > max_species)
+            throw std::runtime_error("More species than max_species in salsa_types.h");
     }
 }

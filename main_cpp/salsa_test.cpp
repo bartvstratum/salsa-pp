@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
     const int kcells = ktot + 2*gc;
 
     Array_4d<TF> fields("fields", layout.n_fields, kcells, jcells, icells);
+    Array_4d<TF> diameter_wet("diameter_wet", layout.n_bins, kcells, jcells, icells);
     Array_3d<TF> rv("rv", kcells, jcells, icells);
     Array_3d<TF> T("T", kcells, jcells, icells);
     Array_3d<TF> p("p", kcells, jcells, icells);
@@ -105,6 +106,7 @@ int main(int argc, char* argv[])
 
     solver.exec(
             fields,
+            diameter_wet,
             rv,
             T,
             p,

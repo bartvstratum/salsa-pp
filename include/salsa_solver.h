@@ -52,6 +52,7 @@ namespace Salsa
             // Runs on the grid points [istart, iend) x [jstart, jend) x [kstart, kend).
             void exec(
                     const Array_4d<TF>& fields,                     // (n, k, j, i), n in the order of the layout
+                    const Array_4d<TF>& diameter_wet,               // (bin, k, j, i), kept between calls as in UCLALES-SALSA
                     const Array_3d<TF>& rv,                         // Water vapour mixing ratio (kg kg-1)
                     const Array_3d<const TF>& T,                    // K
                     const Array_3d<const TF>& p,                    // Pa
@@ -74,6 +75,8 @@ namespace Salsa
 
         private:
             const Layout layout;
+
+            Array_1d<TF> density;
 
             const int coagulation_mode;
             const int autoconversion_mode;

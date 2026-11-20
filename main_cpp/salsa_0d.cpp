@@ -296,6 +296,7 @@ namespace
         const int kend = 1;
 
         Array_4d<TF> fields("fields", layout.n_fields, kend, jend, iend);
+        Array_4d<TF> diameter_wet("diameter_wet", layout.n_bins, kend, jend, iend);
         Array_3d<TF> rv("rv", kend, jend, iend);
         Array_3d<TF> T("T", kend, jend, iend);
         Array_3d<TF> p("p", kend, jend, iend);
@@ -336,6 +337,7 @@ namespace
 
             solver.exec(
                     fields,
+                    diameter_wet,
                     rv,
                     T,
                     p,
@@ -393,8 +395,14 @@ namespace
                 species_dry_name_in,
                 layout);
 
+        // The bin centre diameter, as UCLALES-SALSA initialises the wet diameter.
+        auto diameter_wet_h = Kokkos::create_mirror_view(diameter_wet);
+        for (int b=0; b<layout.n_bins; ++b)
+            diameter_wet_h(b, 0, 0, 0) = layout.diameter_mid[b];
+
         Kokkos::deep_copy(rv, rv_h);
         Kokkos::deep_copy(fields, fields_h);
+        Kokkos::deep_copy(diameter_wet, diameter_wet_h);
 
         // Initialisation call at time 0, as the Fortran driver.
         const TF time_start = 0._tf;

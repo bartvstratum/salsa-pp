@@ -103,7 +103,7 @@ def main():
                np.array([2.0, 1.5, 1.59, 1.59, 2.0, 2.0, 2.0]))
 
     # driver.f90: H2SO4 and organic vapours zero, HNO3 = 8.4682e-15 mol cm-3. The old driver also puts the
-    # HNO3 value into the NH3 slot (BUGS.md); on master neither gas is used.
+    # HNO3 value into the NH3 slot; on master neither gas is used.
     c_hno3 = 8.4682e-15 * avog * 1e6
     gas_m3 = np.array([0., c_hno3, c_hno3, 0., 0.])
 

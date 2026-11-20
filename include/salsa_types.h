@@ -39,8 +39,16 @@ namespace Salsa
 
     // C-style index order, no overlap in memory.
     template<typename T>
+    using Array_1d = Kokkos::View<T*, Kokkos::LayoutRight, Default_exec::memory_space, Kokkos::MemoryTraits<Kokkos::Restrict>>;
+
+    template<typename T>
     using Array_3d = Kokkos::View<T***, Kokkos::LayoutRight, Default_exec::memory_space, Kokkos::MemoryTraits<Kokkos::Restrict>>;
 
     template<typename T>
     using Array_4d = Kokkos::View<T****, Kokkos::LayoutRight, Default_exec::memory_space, Kokkos::MemoryTraits<Kokkos::Restrict>>;
+
+
+    // Device code cannot allocate, so the state of a grid point has compile-time sizes.
+    constexpr int max_bins = 64;
+    constexpr int max_species = 8;
 }
