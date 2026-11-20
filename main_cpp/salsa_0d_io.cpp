@@ -160,7 +160,7 @@ namespace Salsa_0d
         put_text(ncid, NC_GLOBAL, "title", "SALSA 0D reference test, case " + case_name);
         put_text(ncid, NC_GLOBAL, "case_name", case_name);
         put_text(ncid, NC_GLOBAL, "code", "SALSA++ (C++) 0D driver");
-        put_text(ncid, NC_GLOBAL, "salsapp_git_commit", salsapp_git_commit);
+        put_text(ncid, NC_GLOBAL, "salsa_pp_git_commit", salsa_pp_git_commit);
         put_text(ncid, NC_GLOBAL, "upstream_salsa_commit",
                 "https://github.com/UCLALES-SALSA/UCLALES-SALSA 8c779581118f97b6092efe6da43680ffa4e1cefa");
         put_text(ncid, NC_GLOBAL, "creation_time", creation_time);

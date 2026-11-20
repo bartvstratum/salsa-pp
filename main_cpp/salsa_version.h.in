@@ -8,4 +8,4 @@
 
 #pragma once
 
-constexpr const char* salsapp_git_commit = "@GIT_COMMIT@";
+constexpr const char* salsa_pp_git_commit = "@GIT_COMMIT@";

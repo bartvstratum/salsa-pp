@@ -120,7 +120,7 @@ contains
         call put_att_global('title', 'SALSA 0D reference test, case ' // trim(case_name))
         call put_att_global('case_name', trim(case_name))
         call put_att_global('code', 'Fortran reference: UCLALES-SALSA (vendored) + SALSA++ Fortran driver')
-        call put_att_global('salsapp_git_commit', trim(git_commit))
+        call put_att_global('salsa_pp_git_commit', trim(git_commit))
         call put_att_global('upstream_salsa_commit', &
             'https://github.com/UCLALES-SALSA/UCLALES-SALSA 8c779581118f97b6092efe6da43680ffa4e1cefa')
         call put_att_global('creation_time', creation_time)
