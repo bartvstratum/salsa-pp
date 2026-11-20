@@ -88,6 +88,7 @@ int main(int argc, char* argv[])
     Array_3d<TF> rho("rho", kcells, jcells, icells);
 
     const TF dt = 1._tf;
+    const bool initialize = false;
 
     const bool do_coagulation = false;
     const bool update_coagulation_kernels = false;
@@ -113,6 +114,7 @@ int main(int argc, char* argv[])
             rs,
             rho,
             dt,
+            initialize,
             do_coagulation,
             update_coagulation_kernels,
             do_condensation,

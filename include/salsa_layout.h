@@ -19,13 +19,22 @@ namespace Salsa
 {
     // Field order: per bin the number, then the mass of each species; the gases after all bins.
     KOKKOS_INLINE_FUNCTION
-    int number_field(const int bin, const int n_species) { return bin*(1 + n_species); }
+    int number_field(const int bin, const int n_species)
+    {
+        return bin*(1 + n_species);
+    }
 
     KOKKOS_INLINE_FUNCTION
-    int mass_field(const int bin, const int species, const int n_species) { return bin*(1 + n_species) + 1 + species; }
+    int mass_field(const int bin, const int species, const int n_species)
+    {
+        return bin*(1 + n_species) + 1 + species;
+    }
 
     KOKKOS_INLINE_FUNCTION
-    int gas_field(const int gas, const int n_bins, const int n_species) { return n_bins*(1 + n_species) + gas; }
+    int gas_field(const int gas, const int n_bins, const int n_species)
+    {
+        return n_bins*(1 + n_species) + gas;
+    }
 
 
     // The bins are ordered as allSALSA in UCLALES-SALSA: aerosol (regimes 1a, 2a, 2b), cloud (a, b), rain.
@@ -48,9 +57,20 @@ namespace Salsa
             Layout(Layout&&) = delete;
             Layout& operator=(Layout&&) = delete;
 
-            int number_field(const int bin) const { return Salsa::number_field(bin, n_species); }
-            int mass_field(const int bin, const int species) const { return Salsa::mass_field(bin, species, n_species); }
-            int gas_field(const int gas) const { return Salsa::gas_field(gas, n_bins, n_species); }
+            int number_field(const int bin) const
+            {
+                return Salsa::number_field(bin, n_species);
+            }
+
+            int mass_field(const int bin, const int species) const
+            {
+                return Salsa::mass_field(bin, species, n_species);
+            }
+
+            int gas_field(const int gas) const
+            {
+                return Salsa::gas_field(gas, n_bins, n_species);
+            }
 
             static constexpr int n_gases = 5;
 
@@ -76,6 +96,7 @@ namespace Salsa
             // Per species.
             std::vector<std::string> species;
             std::vector<TF> density;                        // Fortran: rholiq
+            std::vector<TF> molar_mass;                     // Fortran: MM
 
             int n_bins;
             int n_species;

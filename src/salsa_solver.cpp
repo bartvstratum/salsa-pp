@@ -9,11 +9,27 @@
 #include <vector>
 
 #include "salsa_solver.h"
+#include "salsa_constants.h"
+#include "salsa_properties_kernels.h"
 
 
 namespace
 {
     using namespace Salsa;
+
+    // Relative humidity of the initialisation call; Fortran: mo_salsa_driver.f90: init_rh
+    constexpr TF init_rh = 0.3_tf;
+
+
+    int species_index(const std::vector<std::string>& species, const std::string& name)
+    {
+        for (size_t s=0; s<species.size(); ++s)
+            if (species[s] == name)
+                return static_cast<int>(s);
+
+        return -1;
+    }
+
 
     Array_1d<TF> to_device(const std::string& name, const std::vector<TF>& values)
     {
@@ -62,9 +78,18 @@ namespace Salsa
         condense_gases(condense_gases),
         condense_water_aer(condense_water_aer),
         condense_water_cld(condense_water_cld),
-        rh_limit(rh_limit)
+        rh_limit(rh_limit),
+        iso4(species_index(layout.species, "SO4")),
+        ioc(species_index(layout.species, "OC")),
+        ibc(species_index(layout.species, "BC")),
+        idu(species_index(layout.species, "DU")),
+        iss(species_index(layout.species, "SS")),
+        iwa(species_index(layout.species, "H2O"))
     {
         density = to_device("density", layout.density);
+        molar_mass = to_device("molar_mass", layout.molar_mass);
+        diameter_mid = to_device("diameter_mid", layout.diameter_mid);
+        number_limit = to_device("number_limit", layout.number_limit);
     }
 
 
@@ -77,6 +102,7 @@ namespace Salsa
             const Array_3d<const TF>& rs,
             const Array_3d<const TF>& rho,
             const TF dt,
+            const bool initialize,
             const bool do_coagulation,
             const bool update_coagulation_kernels,
             const bool do_condensation,
@@ -93,12 +119,28 @@ namespace Salsa
     {
         const int n_bins = layout.n_bins;
         const int n_species = layout.n_species;
+        const int n_dry = n_species - 1;
         const int n_gases = Layout::n_gases;
+
+        const int aer_1a_start = layout.aer_1a_start;
+        const int aer_1a_end = layout.aer_1a_end;
+        const int aer_2a_start = layout.aer_2a_start;
+        const int aer_2b_end = layout.aer_2b_end;
+
+        const int iso4 = this->iso4;
+        const int ioc = this->ioc;
+        const int ibc = this->ibc;
+        const int idu = this->idu;
+        const int iss = this->iss;
+        const int iwa = this->iwa;
 
         const TF rh_limit = this->rh_limit;
         const bool condense_gases = this->condense_gases;
 
         const Array_1d<TF> density = this->density;
+        const Array_1d<TF> molar_mass = this->molar_mass;
+        const Array_1d<TF> diameter_mid = this->diameter_mid;
+        const Array_1d<TF> number_limit = this->number_limit;
 
         Kokkos::parallel_for("salsa_exec",
                 Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
@@ -107,9 +149,11 @@ namespace Salsa
                     TF number[max_bins];                    // m-3; Fortran: numc
                     TF volume[max_bins][max_species];       // m3 m-3; Fortran: volc
                     TF d_wet[max_bins];                     // m; Fortran: dwet
+                    TF core[max_bins];                      // Dry volume of one particle (m3)
                     TF gas[Layout::n_gases];                // m-3
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
+                    const TF T_ijk = T(k, j, i);
                     const TF rs_ijk = rs(k, j, i);
                     const TF rho_ijk = rho(k, j, i);
                     TF rv_ijk = free_rh ? rv(k, j, i) : Kokkos::min(rv(k, j, i), rs_ijk*rh_limit);
@@ -123,10 +167,47 @@ namespace Salsa
 
                         number[b] = fields(number_field(b, n_species), k, j, i)*rho_ijk;
                         d_wet[b] = diameter_wet(b, k, j, i);
+
+                        if (number[b] > number_limit(b))
+                        {
+                            TF volume_dry = 0._tf;
+                            for (int s=0; s<n_dry; ++s)
+                                volume_dry += volume[b][s];
+
+                            core[b] = volume_dry/number[b];
+                        }
+                        else
+                        {
+                            const TF dm = diameter_mid(b);
+                            core[b] = pi6*(dm*dm*dm);
+                        }
                     }
 
                     for (int g=0; g<n_gases; ++g)
                         gas[g] = fields(gas_field(g, n_bins, n_species), k, j, i)*rho_ijk;
+
+                    if (initialize)
+                        equilibrate_water(
+                                number,
+                                volume,
+                                d_wet,
+                                core,
+                                diameter_mid,
+                                density,
+                                molar_mass,
+                                init_rh,
+                                T_ijk,
+                                initialize,
+                                iso4,
+                                ioc,
+                                ibc,
+                                idu,
+                                iss,
+                                iwa,
+                                aer_1a_start,
+                                aer_1a_end,
+                                aer_2a_start,
+                                aer_2b_end);
 
                     // The processes come here (step 6b on).
 

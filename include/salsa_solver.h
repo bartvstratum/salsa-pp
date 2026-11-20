@@ -47,7 +47,10 @@ namespace Salsa
             Solver(Solver&&) = delete;
             Solver& operator=(Solver&&) = delete;
 
-            const Layout& get_layout() const { return layout; }
+            const Layout& get_layout() const
+            {
+                return layout;
+            }
 
             // Runs on the grid points [istart, iend) x [jstart, jend) x [kstart, kend).
             void exec(
@@ -59,6 +62,7 @@ namespace Salsa
                     const Array_3d<const TF>& rs,                   // Saturation mixing ratio over water (kg kg-1)
                     const Array_3d<const TF>& rho,                  // kg m-3
                     const TF dt,
+                    const bool initialize,                          // Equilibrate the aerosol water first; Fortran: run_SALSA initialize
                     const bool do_coagulation,
                     const bool update_coagulation_kernels,          // Coagulation mode 2 only
                     const bool do_condensation,
@@ -77,6 +81,9 @@ namespace Salsa
             const Layout layout;
 
             Array_1d<TF> density;
+            Array_1d<TF> molar_mass;
+            Array_1d<TF> diameter_mid;
+            Array_1d<TF> number_limit;
 
             const int coagulation_mode;
             const int autoconversion_mode;
@@ -94,5 +101,13 @@ namespace Salsa
             const bool condense_water_cld;
 
             const TF rh_limit;
+
+            // Species indices, -1 if not used.
+            const int iso4;
+            const int ioc;
+            const int ibc;
+            const int idu;
+            const int iss;
+            const int iwa;
     };
 }

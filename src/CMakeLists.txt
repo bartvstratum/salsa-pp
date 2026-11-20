@@ -8,5 +8,5 @@ add_library(salsa STATIC
     salsa_sizedist.cpp
     salsa_solver.cpp)
 
-target_include_directories(salsa PUBLIC "../include")
+target_include_directories(salsa PUBLIC "../include" "../include_kernels")
 target_link_libraries(salsa PUBLIC Kokkos::kokkos)

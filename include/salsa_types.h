@@ -19,8 +19,17 @@ namespace Salsa
     using TF = double;
     #endif
 
-    KOKKOS_INLINE_FUNCTION constexpr TF operator""_tf(const long double ld) { return static_cast<TF>(ld); }
-    KOKKOS_INLINE_FUNCTION constexpr TF operator""_tf(const unsigned long long ll) { return static_cast<TF>(ll); }
+    KOKKOS_INLINE_FUNCTION
+    constexpr TF operator""_tf(const long double ld)
+    {
+        return static_cast<TF>(ld);
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    constexpr TF operator""_tf(const unsigned long long ll)
+    {
+        return static_cast<TF>(ll);
+    }
 
 
     // Default execution space: Cuda/HIP for GPU builds, OpenMP or Serial for CPU.

@@ -325,7 +325,7 @@ namespace
         };
 
         // Which processes run at this time, as set_SALSA_runtime in mo_salsa_driver.f90.
-        auto exec = [&](const TF time, const int istp)
+        auto exec = [&](const TF time, const int istp, const bool initialize)
         {
             const bool do_coagulation = coagulation_on && time >= coagulation_delay;
             const bool update_coagulation_kernels = do_coagulation && coagulation_mode == 2 &&
@@ -344,6 +344,7 @@ namespace
                     rs,
                     rho,
                     dt,
+                    initialize,
                     do_coagulation,
                     update_coagulation_kernels,
                     do_condensation,
@@ -407,7 +408,8 @@ namespace
         // Initialisation call at time 0, as the Fortran driver.
         const TF time_start = 0._tf;
         const int istp_start = 0;
-        exec(time_start, istp_start);
+        const bool initialize = true;
+        exec(time_start, istp_start, initialize);
         write_output(time_start);
 
         // Step istp sees the forcing at its end time istp*dt, and gets the time at its start.
@@ -417,7 +419,7 @@ namespace
                 throw std::runtime_error("Input time does not match istp*dt");
 
             set_thermodynamics(istp);
-            exec((istp-1)*dt, istp);
+            exec((istp-1)*dt, istp, !initialize);
             write_output(istp*dt);
         }
 

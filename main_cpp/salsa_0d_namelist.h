@@ -38,7 +38,9 @@ namespace Salsa_0d
 
     inline std::string to_lower(std::string text)
     {
-        std::transform(text.begin(), text.end(), text.begin(), [](const unsigned char c) { return std::tolower(c); });
+        for (char& c : text)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
         return text;
     }
 

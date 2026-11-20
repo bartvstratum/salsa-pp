@@ -33,6 +33,18 @@ namespace
             {"H2O", 1000._tf}};
 
 
+    // Fortran: classSpecies.f90: allMM
+    const std::map<std::string, TF> molar_masses = {
+            {"SO4", 98.08e-3_tf},
+            {"OC", 150.e-3_tf},
+            {"BC", 12.e-3_tf},
+            {"DU", 100.e-3_tf},
+            {"SS", 58.44e-3_tf},
+            {"NO", 62.01e-3_tf},
+            {"NH", 18.04e-3_tf},
+            {"H2O", 18.016e-3_tf}};
+
+
     // Fortran: mo_salsa_init.f90: set_aerobins (part)
     // Logarithmically spaced bins between two diameters.
     void set_log_bins(
@@ -158,6 +170,7 @@ namespace Salsa
                 throw std::runtime_error("Unknown species " + name);
 
             density.push_back(rho->second);
+            molar_mass.push_back(molar_masses.at(name));
         }
 
         n_fields = n_bins * (1 + n_species) + n_gases;
