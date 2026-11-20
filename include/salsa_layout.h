@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "salsa_types.h"
+
 
 namespace Salsa
 {
@@ -23,8 +25,11 @@ namespace Salsa
     {
         public:
             Layout(
+                    const std::array<TF, 4>& regime_limits,
                     const std::array<int, 2>& n_bins_regime,
                     const int n_bins_rain,
+                    const TF rain_diameter_low,
+                    const TF rain_volume_ratio,
                     const std::vector<std::string>& dry_species);
 
             Layout(const Layout&) = delete;
@@ -51,7 +56,14 @@ namespace Salsa
             int rain_start;
             int rain_end;
 
+            // Per bin: dry volume limits for aerosol and cloud, drop volume limits for rain (m3), and the centre diameter (m).
+            std::vector<TF> volume_low;                     // Fortran: vlolim
+            std::vector<TF> volume_high;                    // Fortran: vhilim
+            std::vector<TF> diameter_mid;                   // Fortran: dmid
+
+            // Per species.
             std::vector<std::string> species;
+            std::vector<TF> density;                        // Fortran: rholiq
 
             int n_bins;
             int n_species;

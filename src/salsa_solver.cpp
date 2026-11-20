@@ -31,10 +31,7 @@ namespace Salsa
             const bool condense_water_aer,
             const bool condense_water_cld,
             const TF rh_limit) :
-        layout(n_bins_regime, n_bins_rain, dry_species),
-        regime_limits(regime_limits),
-        rain_diameter_low(rain_diameter_low),
-        rain_volume_ratio(rain_volume_ratio),
+        layout(regime_limits, n_bins_regime, n_bins_rain, rain_diameter_low, rain_volume_ratio, dry_species),
         coagulation_mode(coagulation_mode),
         autoconversion_mode(autoconversion_mode),
         activation_mode(activation_mode),

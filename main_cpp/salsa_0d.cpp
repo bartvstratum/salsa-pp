@@ -8,6 +8,7 @@
  * Reads the file NAMELIST (&salsa, &driver) in the current directory.
  */
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -19,6 +20,8 @@
 #include <vector>
 
 #include "salsa_solver.h"
+#include "salsa_constants.h"
+#include "salsa_sizedist.h"
 #include "salsa_0d_io.h"
 #include "salsa_0d_namelist.h"
 
@@ -27,12 +30,6 @@ namespace
 {
     using namespace Salsa;
     using namespace Salsa_0d;
-
-    // As mo_submctl.f90.
-    constexpr TF mair = 28.97e-3_tf;    // Molar mass of air (kg mol-1)
-    constexpr TF rg = 8.314_tf;         // Molar gas constant (J mol-1 K-1)
-    constexpr TF mwa = 18.016e-3_tf;    // Molar mass of water (kg mol-1)
-
 
     // Saturation vapour pressure over liquid water (Pa): 6th-order polynomial in T - 273.15 K (Lowe, 1977), as the
     // Fortran driver.
@@ -54,6 +51,98 @@ namespace
         const TF tc6 = tc3*tc3;
 
         return 100._tf*(a0 + a1*tc + a2*tc2 + a3*tc3 + a4*tc4 + a5*tc5 + a6*tc6);
+    }
+
+
+    // Initial aerosol from lognormal modes, as the Fortran driver: number per bin for regimes 1a + 2a and for 2b,
+    // mass = volume fraction * number * bin centre volume * density. Regime 1a holds only SO4 and OC, in the ratio of
+    // their regime-a fractions.
+    void set_initial_aerosol(
+            const Array_4d_h& fields,
+            const std::vector<TF>& number_a,
+            const std::vector<TF>& dpg_a,
+            const std::vector<TF>& sigmag_a,
+            const std::vector<TF>& number_b,
+            const std::vector<TF>& dpg_b,
+            const std::vector<TF>& sigmag_b,
+            const std::vector<TF>& vol_frac_a_in,
+            const std::vector<TF>& vol_frac_b_in,
+            const std::vector<std::string>& species_dry_name_in,
+            const Layout& layout)
+    {
+        const int n_dry = layout.n_species - 1;
+
+        // Volume fractions of the active dry species, by name.
+        std::vector<TF> vol_frac_a(n_dry, 0._tf);
+        std::vector<TF> vol_frac_b(n_dry, 0._tf);
+
+        for (size_t j=0; j<species_dry_name_in.size(); ++j)
+        {
+            bool found = false;
+            for (int s=0; s<n_dry; ++s)
+            {
+                if (layout.species[s] == species_dry_name_in[j])
+                {
+                    vol_frac_a[s] = vol_frac_a_in[j];
+                    vol_frac_b[s] = vol_frac_b_in[j];
+                    found = true;
+                }
+            }
+
+            if (!found && (vol_frac_a_in[j] != 0._tf || vol_frac_b_in[j] != 0._tf))
+                throw std::runtime_error("Initial volume fraction given for " + species_dry_name_in[j] + ", which is not in listspec");
+        }
+
+        const std::vector<TF> number_bin_a = lognormal_distribution(
+                number_a, dpg_a, sigmag_a, layout, layout.aer_1a_start, layout.aer_2a_end);
+        const std::vector<TF> number_bin_b = lognormal_distribution(
+                number_b, dpg_b, sigmag_b, layout, layout.aer_2b_start, layout.aer_2b_end);
+
+        int iso4 = -1;
+        int ioc = -1;
+        for (int s=0; s<n_dry; ++s)
+        {
+            if (layout.species[s] == "SO4")
+                iso4 = s;
+            if (layout.species[s] == "OC")
+                ioc = s;
+        }
+
+        TF frac_oc_1a;
+        if (iso4 >= 0 && ioc >= 0)
+            frac_oc_1a = vol_frac_a[ioc]/(vol_frac_a[ioc] + vol_frac_a[iso4]);
+        else if (ioc >= 0)
+            frac_oc_1a = 1._tf;
+        else if (iso4 >= 0)
+            frac_oc_1a = 0._tf;
+        else
+            throw std::runtime_error("Either OC or SO4 must be active for aerosol regime 1a");
+
+        for (int b=layout.aer_1a_start; b<layout.aer_2b_end; ++b)
+        {
+            const TF number = number_bin_a[b] + number_bin_b[b];
+            const TF d = layout.diameter_mid[b];
+            const TF core = pi6*(d*d*d);
+
+            fields(layout.number_field(b), 0, 0, 0) = number;
+
+            if (b < layout.aer_1a_end)
+            {
+                if (iso4 >= 0)
+                    fields(layout.mass_field(b, iso4), 0, 0, 0) =
+                            std::max(0._tf, 1._tf - frac_oc_1a)*number*core*layout.density[iso4];
+                if (ioc >= 0)
+                    fields(layout.mass_field(b, ioc), 0, 0, 0) =
+                            std::max(0._tf, frac_oc_1a)*number*core*layout.density[ioc];
+            }
+            else
+            {
+                const std::vector<TF>& vol_frac = (b < layout.aer_2a_end) ? vol_frac_a : vol_frac_b;
+                for (int s=0; s<n_dry; ++s)
+                    fields(layout.mass_field(b, s), 0, 0, 0) =
+                            std::max(0._tf, vol_frac[s])*number*core*layout.density[s];
+            }
+        }
     }
 
 
@@ -175,6 +264,22 @@ namespace
         const std::vector<double> gas_in = read_variable(input_file, "gas");
         const std::vector<std::string> gas_name_in = read_names(input_file, "gas_name");
 
+        auto read_tf = [&](const std::string& name)
+        {
+            const std::vector<double> values = read_variable(input_file, name);
+            return std::vector<TF>(values.begin(), values.end());
+        };
+
+        const std::vector<TF> number_a = read_tf("number_a");
+        const std::vector<TF> dpg_a = read_tf("dpg_a");
+        const std::vector<TF> sigmag_a = read_tf("sigmag_a");
+        const std::vector<TF> number_b = read_tf("number_b");
+        const std::vector<TF> dpg_b = read_tf("dpg_b");
+        const std::vector<TF> sigmag_b = read_tf("sigmag_b");
+        const std::vector<TF> vol_frac_a_in = read_tf("vol_frac_a");
+        const std::vector<TF> vol_frac_b_in = read_tf("vol_frac_b");
+        const std::vector<std::string> species_dry_name_in = read_names(input_file, "species_dry_name");
+
         const std::vector<std::string> gas_names = {"H2SO4", "HNO3", "NH3", "OCNV", "OCSV"};
 
         if (static_cast<int>(time_in.size()) < nsteps + 1)
@@ -274,6 +379,19 @@ namespace
         rv_h(0, 0, 0) = static_cast<TF>(rh_in[0])*rs_h(0, 0, 0);
         for (int g=0; g<Layout::n_gases; ++g)
             fields_h(layout.gas_field(g), 0, 0, 0) = static_cast<TF>(gas_in[g]);
+
+        set_initial_aerosol(
+                fields_h,
+                number_a,
+                dpg_a,
+                sigmag_a,
+                number_b,
+                dpg_b,
+                sigmag_b,
+                vol_frac_a_in,
+                vol_frac_b_in,
+                species_dry_name_in,
+                layout);
 
         Kokkos::deep_copy(rv, rv_h);
         Kokkos::deep_copy(fields, fields_h);

@@ -75,10 +75,6 @@ namespace Salsa
         private:
             const Layout layout;
 
-            const std::array<TF, 4> regime_limits;
-            const TF rain_diameter_low;
-            const TF rain_volume_ratio;
-
             const int coagulation_mode;
             const int autoconversion_mode;
             const int activation_mode;

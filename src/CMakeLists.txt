@@ -5,6 +5,7 @@
 # The solver library, without I/O.
 add_library(salsa STATIC
     salsa_layout.cpp
+    salsa_sizedist.cpp
     salsa_solver.cpp)
 
 target_include_directories(salsa PUBLIC "../include")

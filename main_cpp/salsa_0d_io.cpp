@@ -6,12 +6,14 @@
  * NetCDF input and output of the 0D driver. The output has the layout of the Fortran driver's output.
  */
 
+#include <cmath>
 #include <ctime>
 #include <stdexcept>
 
 #include <netcdf.h>
 
 #include "salsa_0d_io.h"
+#include "salsa_constants.h"
 #include "salsa_version.h"
 
 
@@ -189,6 +191,9 @@ namespace Salsa_0d
         varid_time = def_var(ncid, "time", {dimid_time}, "s", "time since start");
 
         // Bin coordinates: dry diameter for aerosol and cloud (cloud bins are parallel to aerosol bins), drop diameter for rain.
+        std::array<int, 3> varid_bin;
+        std::array<int, 3> varid_bounds;
+
         for (int c=0; c<3; ++c)
         {
             const std::string name = "bin_" + categories[c];
@@ -196,9 +201,9 @@ namespace Salsa_0d
                     categories[c] + " bin centre dry diameter (SALSA dmid)" :
                     "rain bin centre drop diameter (SALSA dmid)";
 
-            const int varid_bin = def_var(ncid, name, {dimid_bin[c]}, "m", long_name);
-            put_text(ncid, varid_bin, "bounds", name + "_bounds");
-            def_var(ncid, name + "_bounds", {dimid_bin[c], dimid_nv}, "m", categories[c] + " bin diameter limits");
+            varid_bin[c] = def_var(ncid, name, {dimid_bin[c]}, "m", long_name);
+            put_text(ncid, varid_bin[c], "bounds", name + "_bounds");
+            varid_bounds[c] = def_var(ncid, name + "_bounds", {dimid_bin[c], dimid_nv}, "m", categories[c] + " bin diameter limits");
         }
 
         int varid_species;
@@ -243,6 +248,25 @@ namespace Salsa_0d
         }
 
         check(nc_enddef(ncid), "enddef");
+
+        for (int c=0; c<3; ++c)
+        {
+            const size_t n_bins = category_end[c] - category_start[c];
+
+            Kokkos::View<double*, Kokkos::HostSpace> diameter_mid("diameter_mid", n_bins);
+            Kokkos::View<double**, Kokkos::HostSpace> bounds("bounds", n_bins, n_bounds);
+
+            for (size_t b=0; b<n_bins; ++b)
+            {
+                const int bin = category_start[c] + b;
+                diameter_mid(b) = layout.diameter_mid[bin];
+                bounds(b, 0) = std::pow(layout.volume_low[bin]/Salsa::pi6, 1./3.);
+                bounds(b, 1) = std::pow(layout.volume_high[bin]/Salsa::pi6, 1./3.);
+            }
+
+            check(nc_put_var_double(ncid, varid_bin[c], diameter_mid.data()), "bin");
+            check(nc_put_var_double(ncid, varid_bounds[c], bounds.data()), "bounds");
+        }
 
         for (int s=0; s<layout.n_species; ++s)
             put_name(ncid, varid_species, s, layout.species[s]);
@@ -297,9 +321,13 @@ namespace Salsa_0d
             const size_t n_bins = category_end[c] - category_start[c];
             const size_t n_species = layout.n_species;
 
+            const size_t n_dry = n_species - 1;
+            const double number_limit = (c == 2) ? Salsa::prlim : Salsa::nlim;
+
             Kokkos::View<double*, Kokkos::HostSpace> number("number", n_bins);
             Kokkos::View<double**, Kokkos::HostSpace> mass("mass", n_species, n_bins);
-            Kokkos::View<double*, Kokkos::HostSpace> diameter("diameter", n_bins);
+            Kokkos::View<double*, Kokkos::HostSpace> diameter_wet("diameter_wet", n_bins);
+            Kokkos::View<double*, Kokkos::HostSpace> diameter_dry("diameter_dry", n_bins);
 
             for (size_t b=0; b<n_bins; ++b)
             {
@@ -307,10 +335,28 @@ namespace Salsa_0d
                 number(b) = fields(layout.number_field(bin), 0, 0, 0);
                 for (size_t s=0; s<n_species; ++s)
                     mass(s, b) = fields(layout.mass_field(bin, s), 0, 0, 0);
-            }
 
-            // Fill values until the diameters are computed, which needs the species densities.
-            Kokkos::deep_copy(diameter, NC_FILL_DOUBLE);
+                // Volume-equivalent diameter of the mean particle, as the Fortran driver.
+                if (number(b) > number_limit)
+                {
+                    double volume_wet = 0.;
+                    double volume_dry = 0.;
+                    for (size_t s=0; s<n_species; ++s)
+                    {
+                        volume_wet += mass(s, b)/layout.density[s];
+                        if (s < n_dry)
+                            volume_dry += mass(s, b)/layout.density[s];
+                    }
+
+                    diameter_wet(b) = std::pow(volume_wet/number(b)/Salsa::pi6, 1./3.);
+                    diameter_dry(b) = std::pow(volume_dry/number(b)/Salsa::pi6, 1./3.);
+                }
+                else
+                {
+                    diameter_wet(b) = NC_FILL_DOUBLE;
+                    diameter_dry(b) = NC_FILL_DOUBLE;
+                }
+            }
 
             const std::array<size_t, 2> start_bins = {rec, 0};
             const std::array<size_t, 2> count_bins = {1, n_bins};
@@ -319,9 +365,9 @@ namespace Salsa_0d
 
             check(nc_put_vara_double(ncid, varid_number[c], start_bins.data(), count_bins.data(), number.data()), "number");
             check(nc_put_vara_double(ncid, varid_mass[c], start_mass.data(), count_mass.data(), mass.data()), "mass");
-            check(nc_put_vara_double(ncid, varid_diameter_wet[c], start_bins.data(), count_bins.data(), diameter.data()),
+            check(nc_put_vara_double(ncid, varid_diameter_wet[c], start_bins.data(), count_bins.data(), diameter_wet.data()),
                     "diameter_wet");
-            check(nc_put_vara_double(ncid, varid_diameter_dry[c], start_bins.data(), count_bins.data(), diameter.data()),
+            check(nc_put_vara_double(ncid, varid_diameter_dry[c], start_bins.data(), count_bins.data(), diameter_dry.data()),
                     "diameter_dry");
         }
 
