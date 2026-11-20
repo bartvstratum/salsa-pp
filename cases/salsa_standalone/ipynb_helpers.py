@@ -107,10 +107,10 @@ def plot_size_distributions(runs, times=(0, 100, 200, 300, 400)):
                             alpha=0.5 if regime == 'b' else 1, label=label)
         ax.set_xscale('log')
         ax.set_title(title(runs['Fortran'], c))
+        ax.set_ylabel('number per bin (mg$^{-1}$)')
         ax.grid()
-    axs[0,0].legend(ncol=len(times))
+    axs[0,0].legend(ncol=min(len(times), 5))
     axs[-1,0].set_xlabel('wet diameter (µm)')
-    fig.supylabel('number per bin (mg$^{-1}$)')
     fig.tight_layout()
     plt.show()
 
@@ -129,29 +129,34 @@ def plot_wet_diameters(runs):
                             color=color, alpha=0.5 if regime == 'b' else 1)
         ax.set_yscale('log')
         ax.set_title(title(ref, c))
+        ax.set_ylabel('wet diameter (µm)')
         ax.grid()
     axs[-1,0].set_xlabel('time (s)')
-    fig.supylabel('wet diameter (µm)')
     fig.tight_layout()
     plt.show()
 
 
+# Water and the dry compounds are conserved; the total number is not, since collisions merge particles.
 def plot_conservation(runs):
-    fig, ax = plt.subplots()
+    fig, axs = stacked(2)
     for name, ds in runs.items():
-        sp = species(ds)
-        totals = {'number': sum(ds[f'number_{c}'].sum(f'bin_{c}') for c in categories),
-                  'water (vapour + liquid)': ds.qv + sum(liquid_water(ds, c) for c in categories)}
-        for i, s in enumerate(sp):
+        ls = line_style(name)
+        totals = {'water (vapour + liquid)': ds.qv + sum(liquid_water(ds, c) for c in categories)}
+        for i, s in enumerate(species(ds)):
             if s != 'H2O':
-                totals[f'{s} mass'] = sum(ds[f'mass_{c}'].isel(species=i).sum(f'bin_{c}') for c in categories)
+                totals[s] = sum(ds[f'mass_{c}'].isel(species=i).sum(f'bin_{c}') for c in categories)
         for label, x in totals.items():
             if x[0] > 0:
-                ax.plot(ds.time, x / x[0] - 1, line_style(name), label=f'{label}, {name}')
-    ax.set_xlabel('time (s)')
-    ax.set_ylabel('relative change since t = 0 (-)')
-    ax.legend()
-    ax.grid()
+                axs[0,0].plot(ds.time, x / x[0] - 1, ls, label=f'{label}, {name}')
+        n = sum(ds[f'number_{c}'].sum(f'bin_{c}') for c in categories)
+        axs[1,0].plot(ds.time, n / n[0] - 1, ls, label=name)
+    axs[0,0].set_title('mass, conserved')
+    axs[1,0].set_title('number, decreases by collisions')
+    for ax in axs[:,0]:
+        ax.set_ylabel('relative change since t = 0 (-)')
+        ax.legend()
+        ax.grid()
+    axs[-1,0].set_xlabel('time (s)')
     fig.tight_layout()
     plt.show()
 

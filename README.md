@@ -17,9 +17,9 @@ The case inputs are created with Python:
     pip install -r requirements.txt
     python cases/salsa_standalone/salsa_standalone_input.py
 
-This writes `input.nc` in `cases/salsa_standalone/case_a`, `case_b` and `case_c`. Run a case from its directory, which holds the `NAMELIST`:
+This writes `input.nc` in `cases/salsa_standalone/case_a` to `case_d`. Run a case from its directory, which holds the `NAMELIST`:
 
     cd cases/salsa_standalone/case_a
     ../../../build/fortran/salsa_0d
 
-The output goes to `output_fortran.nc`.
+The output goes to `output_fortran.nc`. The notebooks `cases/salsa_standalone/compare_case_*.ipynb` plot the cases.

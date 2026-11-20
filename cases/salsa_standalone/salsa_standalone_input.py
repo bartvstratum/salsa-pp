@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Wageningen University & Research
 # SPDX-License-Identifier: Apache-2.0
 #
-# Creates the NetCDF input (forcing + initial conditions) of the SALSA-standalone reference cases A, B and C.
-# The forcing is input.dat of the original SALSA-standalone (commit 41da7aa) for all cases.
+# Creates the NetCDF input (forcing + initial conditions) of the SALSA-standalone reference cases A to D.
+# The forcing comes from input.dat of the original SALSA-standalone (commit 41da7aa) for all cases.
 
 import datetime
 import pathlib
@@ -121,6 +121,14 @@ def main():
     vol_frac_a = np.array([0.30, 0.25, 0.05, 0.05, 0.15, 0.10, 0.10])
     vol_frac_b = np.array([0.05, 0.05, 0.40, 0.40, 0.04, 0.03, 0.03])
     write_case('C', forcing, modes_a, modes_b, vol_frac_a, vol_frac_b, gas_m3)
+
+    # Case D: case C going up and down, so that rain forms and cloud and rain evaporate back to aerosol.
+    # input.dat rows 0-3000 (up to 2000 s, then constant), then rows 2999-0 back down. RH at the start is
+    # 95 % instead of 98 %, so that the end is dry enough for the rain to evaporate back to aerosol.
+    idx = np.r_[0:3001, 2999:-1:-1]
+    rh = forcing[2][idx]
+    rh[0] = 0.95
+    write_case('D', (forcing[0][idx], forcing[1][idx], rh), modes_a, modes_b, vol_frac_a, vol_frac_b, gas_m3)
 
 
 if __name__ == '__main__':
