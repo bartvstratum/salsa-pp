@@ -1,6 +1,7 @@
 ipykernel
 ipympl
 matplotlib
+nbstripout
 numpy
 pandas
 scipy

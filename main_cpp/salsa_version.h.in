@@ -1,0 +1,11 @@
+/*
+ * SALSA++
+ * Copyright (c) 2026 Wageningen University & Research
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * SALSA++ git commit at configure time.
+ */
+
+#pragma once
+
+constexpr const char* salsapp_git_commit = "@GIT_COMMIT@";

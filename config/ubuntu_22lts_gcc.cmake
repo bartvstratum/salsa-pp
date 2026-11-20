@@ -20,3 +20,8 @@ set(USER_CXX_FLAGS_DEBUG "-g -O0")
 # Not forced, so that -DKokkos_ENABLE_OPENMP=OFF gives a Serial build.
 set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "")
 set(Kokkos_ENABLE_SERIAL ON CACHE BOOL "" FORCE)
+
+
+# Set the libraries.
+set(NETCDF_LIB_C "netcdf")
+set(LIBS ${NETCDF_LIB_C})

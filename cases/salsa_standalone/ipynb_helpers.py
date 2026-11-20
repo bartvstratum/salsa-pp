@@ -161,17 +161,22 @@ def plot_conservation(runs):
     plt.show()
 
 
+# Compares by position, not by coordinate value. A bin that is empty (NaN) in one run only counts as an infinite difference.
 def compare(runs):
     ref = runs['Fortran']
     rows = []
     for name, ds in runs.items():
         if name == 'Fortran':
             continue
-        for var in ref.data_vars:
-            if 'time' not in ref[var].dims:
+        # All variables, as xarray makes gas (named as its dimension) a coordinate.
+        for var in ref.variables:
+            if var == 'time' or 'time' not in ref[var].dims:
                 continue
-            diff = float(abs(ds[var] - ref[var]).max())
-            scale = float(abs(ref[var]).max())
+            a = ref[var].values
+            b = ds[var].values
+            diff = np.where(np.isnan(a) != np.isnan(b), np.inf, np.abs(b - a))
+            diff = float(np.nanmax(diff)) if not np.all(np.isnan(diff)) else 0.
+            scale = float(np.nanmax(np.abs(a))) if not np.all(np.isnan(a)) else 0.
             rows.append((name, var, diff, diff / scale if scale > 0 else np.nan))
     if not rows:
         print('No C++ output yet.')
