@@ -13,12 +13,17 @@ import xarray as xr
 
 categories = ['aerosol', 'cloud', 'rain']
 
+# Identical results hide each other, so the size distribution and wet diameter plots multiply the C++/Kokkos diameters
+# by this factor.
+diameter_shift = 1.1
+
 
 def load_runs(case):
     case_dir = pathlib.Path(__file__).resolve().parent / f'case_{case}'
     runs = {'Fortran': xr.open_dataset(case_dir / 'output_fortran.nc')}
     for path in sorted(case_dir.glob('output_cpp*.nc')):
-        runs[path.stem.removeprefix('output_')] = xr.open_dataset(path)
+        name = path.stem.removeprefix('output_').replace('cpp', 'C++/Kokkos').replace('_', ' ')
+        runs[name] = xr.open_dataset(path)
     return runs
 
 
@@ -49,10 +54,26 @@ def stacked(n, **kwargs):
     return plt.subplots(n, 1, squeeze=False, sharex=True, figsize=(w, h * (1 + 0.2 * (n - 1))), **kwargs)
 
 
-def title(ds, c):
+def diameter_factor(name):
+    return 1 if name == 'Fortran' else diameter_shift
+
+
+def title(runs, c):
+    ds = runs['Fortran']
     b = regimes(ds, c).get('b')
-    used = b is not None and float(ds[f'number_{c}'].isel({f'bin_{c}': b}).max()) > 0
-    return c + (' (light: regime b)' if used else '')
+    notes = []
+    if b is not None and float(ds[f'number_{c}'].isel({f'bin_{c}': b}).max()) > 0:
+        notes.append('light: regime b')
+    if len(runs) > 1:
+        notes.append(f'C++/Kokkos dashed, diameter shifted by +{(diameter_shift - 1) * 100:.0f} %')
+    if not notes:
+        return c
+    return c + ' (' + '; '.join(notes) + ')'
+
+
+def bin_range(ds, c, b):
+    low, high = ds[f'bin_{c}_bounds'].values[b] * 1e6
+    return f'{low:.3g}-{high:.3g} µm'
 
 
 def liquid_water(ds, c):
@@ -99,14 +120,14 @@ def plot_size_distributions(runs, times=(0, 100, 200, 300, 400)):
             for t, color in zip(times, colors):
                 if t not in ds.time:
                     continue
-                d = ds[f'diameter_wet_{c}'].sel(time=t).values * 1e6
+                d = ds[f'diameter_wet_{c}'].sel(time=t).values * 1e6 * diameter_factor(name)
                 n = ds[f'number_{c}'].sel(time=t).values * 1e-6
                 for regime, bins in regimes(ds, c).items():
                     label = f't = {t} s' if name == 'Fortran' and regime != 'b' else None
                     ax.plot(d[bins], n[bins], line_style(name), marker='o', color=color,
                             alpha=0.5 if regime == 'b' else 1, label=label)
         ax.set_xscale('log')
-        ax.set_title(title(runs['Fortran'], c))
+        ax.set_title(title(runs, c))
         ax.set_ylabel('number per bin (mg$^{-1}$)')
         ax.grid()
     axs[0,0].legend(ncol=min(len(times), 5))
@@ -125,12 +146,22 @@ def plot_wet_diameters(runs):
             colors = plt.cm.plasma(np.linspace(0, 0.9, idx.size))
             for name, ds in runs.items():
                 for b, color in zip(idx, colors):
-                    ax.plot(ds.time, ds[f'diameter_wet_{c}'].isel({f'bin_{c}': b}) * 1e6, line_style(name),
-                            color=color, alpha=0.5 if regime == 'b' else 1)
+                    d = ds[f'diameter_wet_{c}'].isel({f'bin_{c}': b}).values * 1e6 * diameter_factor(name)
+                    alpha = 0.5 if regime == 'b' else 1
+                    ax.plot(ds.time, d, line_style(name), color=color, alpha=alpha)
+
+                    # Dry size range of the bin at the end of the line.
+                    valid = np.where(np.isfinite(d))[0]
+                    if name == 'Fortran' and valid.size > 0:
+                        last = valid[-1]
+                        ax.text(ds.time.values[last], d[last], ' ' + bin_range(ds, c, b), color=color, alpha=alpha,
+                                fontsize='x-small', va='center')
         ax.set_yscale('log')
-        ax.set_title(title(ref, c))
+        ax.set_title(title(runs, c))
         ax.set_ylabel('wet diameter (µm)')
         ax.grid()
+    t = runs['Fortran'].time.values
+    axs[-1,0].set_xlim(t[0], t[-1] + 0.25 * (t[-1] - t[0]))
     axs[-1,0].set_xlabel('time (s)')
     fig.tight_layout()
     plt.show()

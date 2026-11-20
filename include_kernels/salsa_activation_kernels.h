@@ -20,7 +20,11 @@ namespace Salsa
     // Fortran: mo_salsa_cloud.f90: intgN
     // Integral of a linear number distribution (slope, origin) between two dry volumes.
     KOKKOS_INLINE_FUNCTION
-    TF integral_number(const TF slope, const TF origin, const TF low, const TF high)
+    TF integral_number(
+            const TF slope,
+            const TF origin,
+            const TF low,
+            const TF high)
     {
         return 0.5_tf*slope*Kokkos::max(high*high - low*low, 0._tf) + origin*Kokkos::max(high - low, 0._tf);
     }
@@ -29,7 +33,11 @@ namespace Salsa
     // Fortran: mo_salsa_cloud.f90: intgV
     // Integral of the volume of a linear number distribution (slope, origin) between two dry volumes.
     KOKKOS_INLINE_FUNCTION
-    TF integral_volume(const TF slope, const TF origin, const TF low, const TF high)
+    TF integral_volume(
+            const TF slope,
+            const TF origin,
+            const TF low,
+            const TF high)
     {
         return (1._tf/3._tf)*slope*Kokkos::max(high*high*high - low*low*low, 0._tf)
              + 0.5_tf*origin*Kokkos::max(high*high - low*low, 0._tf);

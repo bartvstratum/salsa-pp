@@ -80,6 +80,8 @@ namespace Salsa
         private:
             const Layout layout;
 
+            Array_1d<TF> volume_low;
+            Array_1d<TF> volume_high;
             Array_1d<TF> density;
             Array_1d<TF> molar_mass;
             Array_1d<TF> diameter_mid;

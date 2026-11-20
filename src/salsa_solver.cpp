@@ -14,6 +14,7 @@
 #include "salsa_properties_kernels.h"
 #include "salsa_condensation_kernels.h"
 #include "salsa_activation_kernels.h"
+#include "salsa_distribution_kernels.h"
 
 
 namespace
@@ -92,6 +93,8 @@ namespace Salsa
         if (coagulation_mode != 1 || autoconversion_mode != 1 || activation_mode != 1)
             throw std::runtime_error("Only mode 1 is supported for coagulation, autoconversion and activation");
 
+        volume_low = to_device("volume_low", layout.volume_low);
+        volume_high = to_device("volume_high", layout.volume_high);
         density = to_device("density", layout.density);
         molar_mass = to_device("molar_mass", layout.molar_mass);
         diameter_mid = to_device("diameter_mid", layout.diameter_mid);
@@ -162,6 +165,8 @@ namespace Salsa
         const bool condense_water_aer = this->condense_water_aer;
         const bool condense_water_cld = this->condense_water_cld;
 
+        const Array_1d<TF> volume_low = this->volume_low;
+        const Array_1d<TF> volume_high = this->volume_high;
         const Array_1d<TF> density = this->density;
         const Array_1d<TF> molar_mass = this->molar_mass;
         const Array_1d<TF> diameter_mid = this->diameter_mid;
@@ -329,7 +334,27 @@ namespace Salsa
                                 cld_b_start,
                                 cld_b_end);
 
-                    // The other processes come here (step 6d on).
+                    // Fortran: mo_salsa_update.f90: distr_update
+                    if (do_update_distribution)
+                        update_distribution(
+                                number,
+                                volume,
+                                volume_low,
+                                volume_high,
+                                diameter_mid,
+                                number_limit,
+                                n_species,
+                                aer_1a_start,
+                                aer_1a_end,
+                                aer_2a_end,
+                                aer_2b_start,
+                                aer_2b_end,
+                                cld_a_start,
+                                cld_a_end,
+                                cld_b_start,
+                                cld_b_end,
+                                rain_start,
+                                rain_end);
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
                     // Fortran: constrain_SALSA.f90: tend_constrain2
