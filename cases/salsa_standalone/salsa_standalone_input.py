@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Wageningen University & Research
 # SPDX-License-Identifier: Apache-2.0
 #
-# Creates the NetCDF input (forcing + initial conditions) of the SALSA-standalone reference cases,
-# from input.dat and the initial aerosol of the original SALSA-standalone driver.f90 (commit 41da7aa).
+# Creates the NetCDF input (forcing + initial conditions) of the SALSA-standalone reference cases A, B and C.
+# The forcing is input.dat of the original SALSA-standalone (commit 41da7aa) for all cases.
 
 import datetime
 import pathlib
@@ -47,7 +47,7 @@ def write_case(case, forcing, modes_a, modes_b, vol_frac_a, vol_frac_b, gas_m3):
     with netcdf_file(path, 'w', version=2) as nc:
         nc.title = f'SALSA-standalone reference, case {case}: forcing and initial conditions'
         nc.case_name = case
-        nc.source = 'input.dat and driver.f90 of https://github.com/UCLALES-SALSA/SALSA-standalone (commit 41da7aa)'
+        nc.source = 'forcing: input.dat of https://github.com/UCLALES-SALSA/SALSA-standalone (commit 41da7aa)'
         nc.history = f'{datetime.datetime.now().isoformat(timespec="seconds")}: created by salsa_standalone_input.py'
         nc.Conventions = 'CF-1.8'
 
@@ -97,20 +97,30 @@ def main():
     forcing = (data[:, 0], data[:, 1] * 100., data[:, 2])
 
     # driver.f90: two sulphate modes, N = (100, 1) cm-3, Dg = (0.15, 1.0) um, sigma_g = (2.0, 1.5);
-    # the other five modes are empty. Regime 2b is empty.
+    # the other five modes are empty.
     modes_a = (np.array([100., 1., 0., 0., 0., 0., 0.]),
                np.array([0.15, 1.0, 0.2, 0.2, 6.0, 6.0, 6.0]),
                np.array([2.0, 1.5, 1.59, 1.59, 2.0, 2.0, 2.0]))
-    modes_b = (np.zeros(nmod), modes_a[1].copy(), modes_a[2].copy())
-    vol_frac_a = np.array([1., 0., 0., 0., 0., 0., 0.])
-    vol_frac_b = np.zeros(len(dry_species))
 
     # driver.f90: H2SO4 and organic vapours zero, HNO3 = 8.4682e-15 mol cm-3. The old driver also puts the
     # HNO3 value into the NH3 slot (BUGS.md); on master neither gas is used.
     c_hno3 = 8.4682e-15 * avog * 1e6
     gas_m3 = np.array([0., c_hno3, c_hno3, 0., 0.])
 
-    write_case('A', forcing, modes_a, modes_b, vol_frac_a, vol_frac_b, gas_m3)
+    # Cases A and B: the initial aerosol of driver.f90, regime 2b empty.
+    no_modes = (np.zeros(nmod), modes_a[1].copy(), modes_a[2].copy())
+    sulphate = np.array([1., 0., 0., 0., 0., 0., 0.])
+    for case in ('A', 'B'):
+        write_case(case, forcing, modes_a, no_modes, sulphate, np.zeros(len(dry_species)), gas_m3)
+
+    # Case C: all dry compounds. Mostly soluble a-bins, mostly insoluble (BC, DU) b-bins with one mode of
+    # 10 cm-3; its Dg and sigma_g are those of the first b-mode in UCLALES-SALSA bin/runles_dcc.
+    modes_b = (np.array([10., 0., 0., 0., 0., 0., 0.]),
+               np.array([0.5, 1.0, 0.2, 0.2, 6.0, 6.0, 6.0]),
+               np.array([1.7, 1.5, 1.59, 1.59, 2.0, 2.0, 2.0]))
+    vol_frac_a = np.array([0.30, 0.25, 0.05, 0.05, 0.15, 0.10, 0.10])
+    vol_frac_b = np.array([0.05, 0.05, 0.40, 0.40, 0.04, 0.03, 0.03])
+    write_case('C', forcing, modes_a, modes_b, vol_frac_a, vol_frac_b, gas_m3)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,42 @@
+&salsa
+   ! Case C: case B with all seven dry compounds, and both regimes 2a and 2b filled (see salsa_standalone_input.py).
+   ! Anything not set here is a master default.
+   ! The initial aerosol comes from the input file (&driver), not from nA/dpgA/sigmagA or volDistA/volDistB.
+   ! Evaporation back to aerosol (SALSA_diagnostics) always runs in the driver, but this forcing never
+   ! gets subsaturated.
+
+   lscoag%switch   = .TRUE.
+   lscoag%mode     = 1         ! Kernels every time step; all collision subprocesses (lscg*) are on by default.
+   lscnd%switch    = .TRUE.
+   lsauto%switch   = .TRUE.
+   lsauto%mode     = 1         ! Parameterized, as part of the cloud droplet coagulation.
+   lsactiv%switch  = .TRUE.
+   lsactiv%mode    = 1         ! Activation based on aerosol growth.
+   lscndgas        = .TRUE.    ! As old nlcndgas; H2SO4 and organic vapours are zero.
+   lscndh2oae      = .TRUE.
+   lscndh2ocl      = .TRUE.
+   lsdistupdate    = .TRUE.
+   lsfreeRH%switch = .TRUE.    ! The old driver does not limit RH.
+
+   ! Aerosol bins as in the old test.
+   reglim = 3.e-9, 5.e-8, 7.e-7, 1.e-5
+   nbin   = 3, 7
+
+   ! Rain bins as in cases A and B.
+   bloPrc%nbins     = 7
+   bloPrc%dlo       = 50.e-6
+   bloPrc%vol_ratio = 4.859562
+
+   ! All dry compounds; H2O is always active.
+   nspec_dry = 7
+   listspec  = 'SO4','OC','BC','DU','SS','NO','NH'
+/
+
+&driver
+   case_name   = 'C'
+   input_file  = 'input.nc'
+   output_file = 'output_fortran.nc'
+   dt          = 1.
+   nsteps      = 400
+   w           = 0.2   ! Vertical velocity (m s-1), as in the old driver; only used by activation mode 2.
+/
