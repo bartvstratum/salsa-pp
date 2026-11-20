@@ -30,7 +30,6 @@ The case inputs are created with Python:
     python -m venv /path/to/venv
     source /path/to/venv/bin/activate
     pip install -r requirements.txt
-    nbstripout --install
     python cases/salsa_standalone/salsa_standalone_input.py
 
 This writes `input.nc` in `cases/salsa_standalone/case_a` to `case_d`. Run a case from its directory, which holds the `NAMELIST`:
@@ -39,4 +38,4 @@ This writes `input.nc` in `cases/salsa_standalone/case_a` to `case_d`. Run a cas
     ../../../build/fortran/salsa_0d
     ../../../build/cpu/main_cpp/salsa_0d
 
-The Fortran output goes to `output_fortran.nc`, the C++ output to `output_cpp.nc`. The notebooks `cases/salsa_standalone/compare_case_*.ipynb` plot the cases; `nbstripout --install` makes git store them without output.
+The Fortran output goes to `output_fortran.nc`, the C++ output to `output_cpp.nc`. The notebooks `cases/salsa_standalone/compare_case_*.ipynb` plot the cases.
