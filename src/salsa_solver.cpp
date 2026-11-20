@@ -11,6 +11,7 @@
 #include "salsa_solver.h"
 #include "salsa_constants.h"
 #include "salsa_properties_kernels.h"
+#include "salsa_condensation_kernels.h"
 
 
 namespace
@@ -90,6 +91,8 @@ namespace Salsa
         molar_mass = to_device("molar_mass", layout.molar_mass);
         diameter_mid = to_device("diameter_mid", layout.diameter_mid);
         number_limit = to_device("number_limit", layout.number_limit);
+        diameter_limit = to_device("diameter_limit", layout.diameter_limit);
+        dissociation = to_device("dissociation", layout.dissociation);
     }
 
 
@@ -120,12 +123,15 @@ namespace Salsa
         const int n_bins = layout.n_bins;
         const int n_species = layout.n_species;
         const int n_dry = n_species - 1;
-        const int n_gases = Layout::n_gases;
 
         const int aer_1a_start = layout.aer_1a_start;
         const int aer_1a_end = layout.aer_1a_end;
         const int aer_2a_start = layout.aer_2a_start;
         const int aer_2b_end = layout.aer_2b_end;
+        const int cld_a_start = layout.cld_a_start;
+        const int cld_b_end = layout.cld_b_end;
+        const int rain_start = layout.rain_start;
+        const int rain_end = layout.rain_end;
 
         const int iso4 = this->iso4;
         const int ioc = this->ioc;
@@ -135,25 +141,30 @@ namespace Salsa
         const int iwa = this->iwa;
 
         const TF rh_limit = this->rh_limit;
-        const bool condense_gases = this->condense_gases;
+        const bool do_condense_gases = this->condense_gases;
+        const bool condense_water_aer = this->condense_water_aer;
+        const bool condense_water_cld = this->condense_water_cld;
 
         const Array_1d<TF> density = this->density;
         const Array_1d<TF> molar_mass = this->molar_mass;
         const Array_1d<TF> diameter_mid = this->diameter_mid;
         const Array_1d<TF> number_limit = this->number_limit;
+        const Array_1d<TF> diameter_limit = this->diameter_limit;
+        const Array_1d<TF> dissociation = this->dissociation;
 
         Kokkos::parallel_for("salsa_exec",
                 Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
                 KOKKOS_LAMBDA(const int k, const int j, const int i)
                 {
-                    TF number[max_bins];                    // m-3; Fortran: numc
-                    TF volume[max_bins][max_species];       // m3 m-3; Fortran: volc
-                    TF d_wet[max_bins];                     // m; Fortran: dwet
-                    TF core[max_bins];                      // Dry volume of one particle (m3)
-                    TF gas[Layout::n_gases];                // m-3
+                    Bin_array number;                       // m-3; Fortran: numc
+                    Bin_species_array volume;               // m3 m-3; Fortran: volc
+                    Bin_array d_wet;                        // m; Fortran: dwet
+                    Bin_array core;                         // Dry volume of one particle (m3)
+                    TF gas[Gas::count];                     // m-3
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
                     const TF T_ijk = T(k, j, i);
+                    const TF p_ijk = p(k, j, i);
                     const TF rs_ijk = rs(k, j, i);
                     const TF rho_ijk = rho(k, j, i);
                     TF rv_ijk = free_rh ? rv(k, j, i) : Kokkos::min(rv(k, j, i), rs_ijk*rh_limit);
@@ -183,7 +194,7 @@ namespace Salsa
                         }
                     }
 
-                    for (int g=0; g<n_gases; ++g)
+                    for (int g=0; g<Gas::count; ++g)
                         gas[g] = fields(gas_field(g, n_bins, n_species), k, j, i)*rho_ijk;
 
                     if (initialize)
@@ -209,7 +220,71 @@ namespace Salsa
                                 aer_2a_start,
                                 aer_2b_end);
 
-                    // The processes come here (step 6b on).
+                    // Fortran: mo_salsa_dynamics.f90: condensation
+                    if (do_condensation)
+                    {
+                        if (do_condense_gases)
+                            Salsa::condense_gases(
+                                    number,
+                                    volume,
+                                    d_wet,
+                                    gas[Gas::h2so4],
+                                    gas[Gas::ocnv],
+                                    gas[Gas::ocsv],
+                                    diameter_mid,
+                                    diameter_limit,
+                                    number_limit,
+                                    T_ijk,
+                                    p_ijk,
+                                    dt,
+                                    iso4,
+                                    ioc,
+                                    n_species,
+                                    aer_1a_start,
+                                    aer_2a_start,
+                                    aer_2b_end,
+                                    cld_a_start,
+                                    cld_b_end,
+                                    rain_start,
+                                    rain_end);
+
+                        if (condense_water_aer || condense_water_cld)
+                            condense_water(
+                                    number,
+                                    volume,
+                                    d_wet,
+                                    core,
+                                    rv_ijk,
+                                    diameter_mid,
+                                    diameter_limit,
+                                    number_limit,
+                                    density,
+                                    molar_mass,
+                                    dissociation,
+                                    T_ijk,
+                                    p_ijk,
+                                    rs_ijk,
+                                    dt,
+                                    condense_water_aer,
+                                    condense_water_cld,
+                                    iso4,
+                                    ioc,
+                                    ibc,
+                                    idu,
+                                    iss,
+                                    iwa,
+                                    n_species,
+                                    aer_1a_start,
+                                    aer_1a_end,
+                                    aer_2a_start,
+                                    aer_2b_end,
+                                    cld_a_start,
+                                    cld_b_end,
+                                    rain_start,
+                                    rain_end);
+                    }
+
+                    // The other processes come here (step 6c on).
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
                     for (int b=0; b<n_bins; ++b)
@@ -221,8 +296,8 @@ namespace Salsa
                         diameter_wet(b, k, j, i) = d_wet[b];
                     }
 
-                    if (condense_gases)
-                        for (int g=0; g<n_gases; ++g)
+                    if (do_condense_gases)
+                        for (int g=0; g<Gas::count; ++g)
                             fields(gas_field(g, n_bins, n_species), k, j, i) = gas[g]/rho_ijk;
 
                     rv(k, j, i) += rv_ijk - rv_old;

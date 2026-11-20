@@ -13,7 +13,9 @@ else()
     set(ENV{CXX} g++)
 endif()
 
-set(USER_CXX_FLAGS "-Wall -fPIC -fopenmp")
+# No FMA contraction (-ffp-contract=off): with -march=native, g++ fuses a*b + c into one instruction with different
+# rounding than the Fortran reference, which is built without -march. Without FMA the C++ results are bit-identical.
+set(USER_CXX_FLAGS "-Wall -fPIC -fopenmp -ffp-contract=off")
 set(USER_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=native")
 set(USER_CXX_FLAGS_DEBUG "-g -O0")
 

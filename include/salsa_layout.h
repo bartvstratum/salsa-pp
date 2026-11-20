@@ -17,6 +17,13 @@
 
 namespace Salsa
 {
+    // The gases, in the order of UCLALES-SALSA.
+    namespace Gas
+    {
+        enum {h2so4, hno3, nh3, ocnv, ocsv, count};
+    }
+
+
     // Field order: per bin the number, then the mass of each species; the gases after all bins.
     KOKKOS_INLINE_FUNCTION
     int number_field(const int bin, const int n_species)
@@ -39,7 +46,7 @@ namespace Salsa
 
     // The bins are ordered as allSALSA in UCLALES-SALSA: aerosol (regimes 1a, 2a, 2b), cloud (a, b), rain.
     // Each bin has a number field, followed by one mass field per species (the dry species, then water).
-    // The gas fields come after all bins, in the UCLALES-SALSA order H2SO4, HNO3, NH3, OCNV, OCSV.
+    // The gas fields come after all bins, in the order of Gas.
     // Bin ranges are [start, end), as kstart and kend in MicroHH.
     class Layout
     {
@@ -72,8 +79,6 @@ namespace Salsa
                 return Salsa::gas_field(gas, n_bins, n_species);
             }
 
-            static constexpr int n_gases = 5;
-
             int aer_1a_start;
             int aer_1a_end;
             int aer_2a_start;
@@ -92,11 +97,13 @@ namespace Salsa
             std::vector<TF> volume_high;                    // Fortran: vhilim
             std::vector<TF> diameter_mid;                   // Fortran: dmid
             std::vector<TF> number_limit;                   // Fortran: nlim
+            std::vector<TF> diameter_limit;                 // Maximum wet diameter (m); Fortran: dlim
 
             // Per species.
             std::vector<std::string> species;
             std::vector<TF> density;                        // Fortran: rholiq
             std::vector<TF> molar_mass;                     // Fortran: MM
+            std::vector<TF> dissociation;                   // Fortran: diss
 
             int n_bins;
             int n_species;

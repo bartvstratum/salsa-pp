@@ -84,6 +84,8 @@ namespace Salsa
             Array_1d<TF> molar_mass;
             Array_1d<TF> diameter_mid;
             Array_1d<TF> number_limit;
+            Array_1d<TF> diameter_limit;
+            Array_1d<TF> dissociation;
 
             const int coagulation_mode;
             const int autoconversion_mode;

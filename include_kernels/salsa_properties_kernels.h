@@ -23,10 +23,10 @@ namespace Salsa
     // copies only SO4, OC, BC, DU and SS into its work array.
     KOKKOS_INLINE_FUNCTION
     void equilibrate_water(
-            const TF* number,                               // m-3
-            TF (*volume)[max_species],                      // m3 m-3
-            TF* d_wet,                                      // m
-            TF* core,                                       // m3
+            const Bin_array& number,                        // m-3
+            Bin_species_array& volume,                      // m3 m-3
+            Bin_array& d_wet,                               // m
+            Bin_array& core,                                // m3
             const Array_1d<TF>& diameter_mid,
             const Array_1d<TF>& density,
             const Array_1d<TF>& molar_mass,

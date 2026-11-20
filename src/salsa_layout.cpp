@@ -45,6 +45,18 @@ namespace
             {"H2O", 18.016e-3_tf}};
 
 
+    // Fortran: classSpecies.f90: allDiss
+    const std::map<std::string, TF> dissociations = {
+            {"SO4", 3._tf},
+            {"OC", 1._tf},
+            {"BC", 0._tf},
+            {"DU", 0._tf},
+            {"SS", 2._tf},
+            {"NO", 1._tf},
+            {"NH", 1._tf},
+            {"H2O", 1._tf}};
+
+
     // Fortran: mo_salsa_init.f90: set_aerobins (part)
     // Logarithmically spaced bins between two diameters.
     void set_log_bins(
@@ -156,8 +168,14 @@ namespace Salsa
 
         // Fortran: mo_salsa_init.f90: set_aerobins (part), set_cloudbins (part)
         number_limit.assign(n_bins, nlim);
+        diameter_limit.assign(n_bins, dlaero);
+        for (int b=cld_a_start; b<cld_b_end; ++b)
+            diameter_limit[b] = dlcloud;
         for (int b=rain_start; b<rain_end; ++b)
+        {
             number_limit[b] = prlim;
+            diameter_limit[b] = dlprecp;
+        }
 
         species = dry_species;
         species.push_back("H2O");
@@ -171,9 +189,10 @@ namespace Salsa
 
             density.push_back(rho->second);
             molar_mass.push_back(molar_masses.at(name));
+            dissociation.push_back(dissociations.at(name));
         }
 
-        n_fields = n_bins * (1 + n_species) + n_gases;
+        n_fields = n_bins * (1 + n_species) + Gas::count;
 
         if (n_bins > max_bins)
             throw std::runtime_error("More bins than max_bins in salsa_types.h");

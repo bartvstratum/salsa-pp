@@ -380,7 +380,7 @@ namespace
         // Initial state.
         set_thermodynamics(0);
         rv_h(0, 0, 0) = static_cast<TF>(rh_in[0])*rs_h(0, 0, 0);
-        for (int g=0; g<Layout::n_gases; ++g)
+        for (int g=0; g<Gas::count; ++g)
             fields_h(layout.gas_field(g), 0, 0, 0) = static_cast<TF>(gas_in[g]);
 
         set_initial_aerosol(

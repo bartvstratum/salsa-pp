@@ -22,7 +22,7 @@ namespace
     constexpr int name_strlen = 8;
 
     const std::array<std::string, 3> categories = {"aerosol", "cloud", "rain"};
-    const std::array<std::string, Salsa::Layout::n_gases> gas_names = {"H2SO4", "HNO3", "NH3", "OCNV", "OCSV"};
+    const std::array<std::string, Salsa::Gas::count> gas_names = {"H2SO4", "HNO3", "NH3", "OCNV", "OCSV"};
 
 
     void check(const int status, const std::string& what)
@@ -184,7 +184,7 @@ namespace Salsa_0d
             check(nc_def_dim(ncid, name.c_str(), category_end[c] - category_start[c], &dimid_bin[c]), name);
         }
         check(nc_def_dim(ncid, "species", layout.n_species, &dimid_species), "species");
-        check(nc_def_dim(ncid, "gas", Salsa::Layout::n_gases, &dimid_gas), "gas");
+        check(nc_def_dim(ncid, "gas", Salsa::Gas::count, &dimid_gas), "gas");
         check(nc_def_dim(ncid, "nv", n_bounds, &dimid_nv), "nv");
         check(nc_def_dim(ncid, "name_strlen", name_strlen, &dimid_strlen), "name_strlen");
 
@@ -271,7 +271,7 @@ namespace Salsa_0d
         for (int s=0; s<layout.n_species; ++s)
             put_name(ncid, varid_species, s, layout.species[s]);
 
-        for (int g=0; g<Salsa::Layout::n_gases; ++g)
+        for (int g=0; g<Salsa::Gas::count; ++g)
             put_name(ncid, varid_gas_name, g, gas_names[g]);
     }
 
@@ -308,12 +308,12 @@ namespace Salsa_0d
         put_scalar(varid_rs, rs);
         put_scalar(varid_supersaturation, rv/rs - 1.);
 
-        std::array<double, Salsa::Layout::n_gases> gas;
-        for (int g=0; g<Salsa::Layout::n_gases; ++g)
+        std::array<double, Salsa::Gas::count> gas;
+        for (int g=0; g<Salsa::Gas::count; ++g)
             gas[g] = fields(layout.gas_field(g), 0, 0, 0);
 
         const std::array<size_t, 2> start_gas = {rec, 0};
-        const std::array<size_t, 2> count_gas = {1, Salsa::Layout::n_gases};
+        const std::array<size_t, 2> count_gas = {1, Salsa::Gas::count};
         check(nc_put_vara_double(ncid, varid_gas, start_gas.data(), count_gas.data(), gas.data()), "gas");
 
         for (int c=0; c<3; ++c)
