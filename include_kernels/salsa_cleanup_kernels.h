@@ -63,7 +63,8 @@ namespace Salsa
             const int b,
             const int n_species,
             const int aer_2a_start,
-            const int aer_2a_end)
+            const int aer_2a_end,
+            const int aer_2b_start)
     {
         const int n_dry = n_species - 1;
 
@@ -80,8 +81,7 @@ namespace Salsa
 
         const int b_a = Kokkos::min(Kokkos::max(aer_2a_start + n_larger - 1, aer_2a_start), aer_2a_end-1);
 
-        // UCLALES-SALSA counts from the last 2a bin, not from the first 2b bin.
-        const int b_b = (aer_2a_end-1) + (b_a - aer_2a_start);
+        const int b_b = aer_2b_start + (b_a - aer_2a_start);
 
         if (fields(number_field(b_b, n_species), k, j, i) <= nlim)
             return b_a;
@@ -246,7 +246,7 @@ namespace Salsa
                 if (d_wet < Kokkos::min(0.2_tf*d_critical, 10.e-6_tf) || mass(b, iwa) < mass_threshold*number(b))
                 {
                     const int b_aer = find_aerosol_bin_for_rain(
-                            fields, k, j, i, density, diameter_low, b, n_species, aer_2a_start, aer_2a_end);
+                            fields, k, j, i, density, diameter_low, b, n_species, aer_2a_start, aer_2a_end, aer_2b_start);
                     move_to_aerosol(b, b_aer);
                 }
             }

@@ -406,7 +406,7 @@ MODULE constrain_SALSA
   !
 
   INTEGER FUNCTION findDry4Wet(nevap,mevap,nb,ib,iz,ix,iy)
-    USE mo_submctl, ONLY : in2a,fn2a,nbins,pi6
+    USE mo_submctl, ONLY : in2a,fn2a,in2b,nbins,pi6  ! SALSA++: in2b
     USE util, ONLY :  calc_correlation, getMassIndex
     IMPLICIT NONE
     
@@ -440,7 +440,7 @@ MODULE constrain_SALSA
     ba = MIN( MAX(in2a + COUNT( cd > aetot%d(ba:fn2a) )-1, in2a), fn2a )
 
     ! Corresponding b bin is ba+(fn2a-fn1a)
-    bb = fn2a + (ba - in2a)
+    bb = in2b + (ba - in2a)  ! SALSA++: was fn2a + (ba - in2a), the last 2a bin for ba = in2a
     
     ! 2) Select a or b bin
     IF (a_naerop%d(iz,ix,iy,bb) <= nlim) THEN
