@@ -1,9 +1,15 @@
 # SALSA++
 C++/Kokkos port of the sectional aerosol–cloud–precipitation microphysics SALSA (Sectional Aerosol module for Large Scale Applications), as extended in UCLALES-SALSA.
 
-> Most of the Fortran → C++/Kokkos translation was done by Claude Opus 5.5 under human supervision. Results from the old and new code were compared at each step and typically matched to floating-point precision. Several issues found in the original Fortran were fixed in both versions (CHANGES.md), keeping the Fortran/C++ tests reproducible. The design differs substantially from the original, targeting performance on CPUs and GPUs, with support for single precision.
-
 Licence: Apache 2.0, except the vendored third-party code in `fortran/`, which keeps its own licence (see the README in each directory there).
+
+## Fortran to C++/Kokkos porting
+Most of the translation was done by Claude Opus 5.5 under human supervision.
+
+- The numerics and physics closely follow the original Fortran code, but the code design differs substantially: it targets performance on CPUs and GPUs with support for single precision.
+- First, all processes were ported one-to-one, deliberately leaving existing bugs and single-precision issues of the original code in place.
+- When all processes up to test case D had been ported, this state was tagged as [v0.1.0](https://github.com/bartvstratum/salsa-pp/releases/tag/v0.1.0). Up to that point, double-precision results from the Fortran and C++ code were exactly identical.
+- After v0.1.0, issues were fixed step by step in both codes, keeping the Fortran/C++ tests reproducible. Each fix has its own GitHub [issue](https://github.com/bartvstratum/salsa-pp/issues), so the diff for each change is well documented.
 
 ## SALSA++
 Requires a C++20 compiler and CMake ≥ 3.20. Kokkos is a submodule (`git submodule update --init`). System settings are in `config/<system>.cmake`, as in MicroHH:
