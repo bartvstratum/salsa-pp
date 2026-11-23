@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "salsa_solver.h"
+#include "salsa_driver_time_integration.h"
 #include "salsa_constants.h"
 #include "salsa_sizedist.h"
 
@@ -178,8 +179,10 @@ namespace
         const int kend = gc + ktot;
 
         Array_4d<TF> fields("fields", layout.n_fields, kcells, jcells, icells);
+        Array_4d<TF> fields_tend("fields_tend", layout.n_fields, kcells, jcells, icells);
         Array_4d<TF> diameter_wet("diameter_wet", layout.n_bins, kcells, jcells, icells);
         Array_3d<TF> rv("rv", kcells, jcells, icells);
+        Array_3d<TF> rv_tend("rv_tend", kcells, jcells, icells);
         Array_3d<TF> T("T", kcells, jcells, icells);
         Array_3d<TF> p("p", kcells, jcells, icells);
         Array_3d<TF> rs("rs", kcells, jcells, icells);
@@ -256,8 +259,10 @@ namespace
                 const bool do_update_distribution)
         {
             solver.exec(
-                    fields,
+                    fields_tend,
+                    rv_tend,
                     diameter_wet,
+                    fields,
                     rv,
                     T,
                     p,
@@ -280,6 +285,15 @@ namespace
                     kend);
         };
 
+        // The fields evolve during the spin-up only, as in the 0D driver.
+        auto integrate = [&](const bool initialize)
+        {
+            if (!initialize)
+                constrain_tendencies(fields, fields_tend, dt, istart, iend, jstart, jend, kstart, kend);
+
+            integrate_forward_euler(fields, fields_tend, rv, rv_tend, dt, initialize, istart, iend, jstart, jend, kstart, kend);
+        };
+
         // Spin-up: initialisation, then 10 s of all processes to fill the cloud bins.
         const TF spin_up_time = 10._tf;
         const int n_spin_up = std::max(1, static_cast<int>(std::lround(spin_up_time/dt)));
@@ -289,8 +303,12 @@ namespace
         const bool all_on = true;
 
         exec(initialize, all_off, all_off, all_off);
+        integrate(initialize);
         for (int n=0; n<n_spin_up; ++n)
+        {
             exec(!initialize, all_on, all_on, all_on);
+            integrate(!initialize);
+        }
 
         // Start state of every timed call.
         Array_4d<TF> fields_start("fields_start", layout.n_fields, kcells, jcells, icells);
@@ -323,6 +341,8 @@ namespace
                 Kokkos::deep_copy(fields, fields_start);
                 Kokkos::deep_copy(diameter_wet, diameter_wet_start);
                 Kokkos::deep_copy(rv, rv_start);
+                Kokkos::deep_copy(fields_tend, 0._tf);
+                Kokkos::deep_copy(rv_tend, 0._tf);
                 Kokkos::fence();
 
                 Kokkos::Timer timer;

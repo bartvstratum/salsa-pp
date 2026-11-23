@@ -120,9 +120,11 @@ namespace Salsa
 
 
     void Solver::exec(
-            const Array_4d<TF>& fields,
+            const Array_4d<TF>& fields_tend,
+            const Array_3d<TF>& rv_tend,
             const Array_4d<TF>& diameter_wet,
-            const Array_3d<TF>& rv,
+            const Array_4d<const TF>& fields,
+            const Array_3d<const TF>& rv,
             const Array_3d<const TF>& T,
             const Array_3d<const TF>& p,
             const Array_3d<const TF>& rs,
@@ -405,18 +407,10 @@ namespace Salsa
                                 rain_end);
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
-                    // Fortran: constrain_SALSA.f90: tend_constrain2
-                    // The change as a tendency, applied as in UCLALES-SALSA: a step lowers a field to at most 1e-8 of its
-                    // old value, and the initialisation clips at zero instead.
+                    // The change over dt as a tendency.
                     auto update = [&](const int n, const TF value)
                     {
-                        const TF old = fields(n, k, j, i);
-                        const TF tendency = (value - old)/dt;
-
-                        if (initialize)
-                            fields(n, k, j, i) = Kokkos::max(old + dt*tendency, 0._tf);
-                        else
-                            fields(n, k, j, i) = old + dt*Kokkos::max((-1._tf + 1.e-8_tf)*old/dt, tendency);
+                        fields_tend(n, k, j, i) += (value - fields(n, k, j, i))/dt;
                     };
 
                     for (int b=0; b<n_bins; ++b)
@@ -432,7 +426,7 @@ namespace Salsa
                         for (int g=0; g<Gas::count; ++g)
                             update(gas_field(g, n_bins, n_species), gas[g]/rho_ijk);
 
-                    rv(k, j, i) += dt*((rv_ijk - rv_old)/dt);
+                    rv_tend(k, j, i) += (rv_ijk - rv_old)/dt;
                 });
     }
 }

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "salsa_solver.h"
+#include "salsa_driver_time_integration.h"
 #include "salsa_constants.h"
 #include "salsa_sizedist.h"
 #include "salsa_0d_io.h"
@@ -296,8 +297,10 @@ namespace
         const int kend = 1;
 
         Array_4d<TF> fields("fields", layout.n_fields, kend, jend, iend);
+        Array_4d<TF> fields_tend("fields_tend", layout.n_fields, kend, jend, iend);
         Array_4d<TF> diameter_wet("diameter_wet", layout.n_bins, kend, jend, iend);
         Array_3d<TF> rv("rv", kend, jend, iend);
+        Array_3d<TF> rv_tend("rv_tend", kend, jend, iend);
         Array_3d<TF> T("T", kend, jend, iend);
         Array_3d<TF> p("p", kend, jend, iend);
         Array_3d<TF> rs("rs", kend, jend, iend);
@@ -336,8 +339,10 @@ namespace
             const bool free_rh = free_rh_on && time > free_rh_delay;
 
             solver.exec(
-                    fields,
+                    fields_tend,
+                    rv_tend,
                     diameter_wet,
+                    fields,
                     rv,
                     T,
                     p,
@@ -358,6 +363,11 @@ namespace
                     jend,
                     kstart,
                     kend);
+
+            if (!initialize)
+                constrain_tendencies(fields, fields_tend, dt, istart, iend, jstart, jend, kstart, kend);
+
+            integrate_forward_euler(fields, fields_tend, rv, rv_tend, dt, initialize, istart, iend, jstart, jend, kstart, kend);
         };
 
         Output output(output_file, case_name, input_file, read_text_file(namelist_file), layout);
