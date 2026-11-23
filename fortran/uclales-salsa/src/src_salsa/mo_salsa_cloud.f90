@@ -879,6 +879,9 @@ CONTAINS
     TYPE(Section), TARGET :: pactd(ncld) ! Local variable
 
     REAL, PARAMETER :: THvol = 1.e-28 ! m^3, less than the volume of a 1 nm particle
+    ! SALSA++: the particle volumes of the profiles are scaled by 2^60: in m^3 their slopes and cubes over- and
+    ! underflow in single precision. A power of two scales exactly, so the results are the same as unscaled.
+    REAL, PARAMETER :: vscale = 2.**60
 
     REAL :: zkelvin               ! Coefficient for Kelvin effect
 
@@ -927,7 +930,7 @@ CONTAINS
             
           ! Determine Dstar == critical diameter corresponding to the host model S
           zdcstar = 2.*zkelvin/( 3.*( (prv(ii,jj)/prs(ii,jj))-1. ) )
-          zvcstar = pi6*zdcstar**3
+          zvcstar = pi6*zdcstar**3*vscale
           
           ! Loop over cloud droplet (and aerosol) bins
           DO cb = ica%cur, fcb%cur
@@ -964,8 +967,8 @@ CONTAINS
              
              ! Define some parameters
              Nmid = aero(ii,jj,ab)%numc                     ! Number concentration at the current bin center
-             Vwmid = SUM(aero(ii,jj,ab)%volc(1:nwet))/Nmid  ! Wet volume of a particle at the current bin center
-             Vmid = SUM(aero(ii,jj,ab)%volc(1:ndry))/Nmid   ! Dry volume of a particle at the current bin center
+             Vwmid = SUM(aero(ii,jj,ab)%volc(1:nwet))/Nmid*vscale  ! Wet volume of a particle at the current bin center
+             Vmid = SUM(aero(ii,jj,ab)%volc(1:ndry))/Nmid*vscale   ! Dry volume of a particle at the current bin center
              Vlo = Vmid*aero(ii,jj,ab)%vratiolo             ! Dry vol at low limit
              Vhi = Vmid*aero(ii,jj,ab)%vratiohi             ! Dry vol at high limit
 
@@ -988,11 +991,11 @@ CONTAINS
              ELSE
                 Nim1 = aero(ii,jj,ab-1)%numc
                 IF (Nim1 > aero(ii,jj,ab-1)%nlim) THEN
-                   Vim1 = SUM(aero(ii,jj,ab-1)%volc(1:ndry))/Nim1
-                   Vwim1 = SUM(aero(ii,jj,ab-1)%volc(1:nwet))/Nim1
+                   Vim1 = SUM(aero(ii,jj,ab-1)%volc(1:ndry))/Nim1*vscale
+                   Vwim1 = SUM(aero(ii,jj,ab-1)%volc(1:nwet))/Nim1*vscale
                 ELSE
-                   Vim1 = pi6*aero(ii,jj,ab-1)%dmid**3
-                   Vwim1 = pi6*aero(ii,jj,ab-1)%dmid**3
+                   Vim1 = pi6*aero(ii,jj,ab-1)%dmid**3*vscale
+                   Vwim1 = pi6*aero(ii,jj,ab-1)%dmid**3*vscale
                 END IF
                 Vlom1 = Vim1*aero(ii,jj,ab-1)%vratiolo
                 Vhim1 = Vim1*aero(ii,jj,ab-1)%vratiohi
@@ -1008,11 +1011,11 @@ CONTAINS
              ELSE
                 Nip1 = aero(ii,jj,ab+1)%numc
                 IF (Nip1 > aero(ii,jj,ab+1)%nlim) THEN
-                   Vip1 = SUM(aero(ii,jj,ab+1)%volc(1:ndry))/Nip1
-                   Vwip1 = SUM(aero(ii,jj,ab+1)%volc(1:nwet))/Nip1
+                   Vip1 = SUM(aero(ii,jj,ab+1)%volc(1:ndry))/Nip1*vscale
+                   Vwip1 = SUM(aero(ii,jj,ab+1)%volc(1:nwet))/Nip1*vscale
                 ELSE
-                   Vip1 = pi6*aero(ii,jj,ab+1)%dmid**3
-                   Vwip1 = pi6*aero(ii,jj,ab+1)%dmid**3
+                   Vip1 = pi6*aero(ii,jj,ab+1)%dmid**3*vscale
+                   Vwip1 = pi6*aero(ii,jj,ab+1)%dmid**3*vscale
                 END IF
                 Vlop1 = Vip1*aero(ii,jj,ab+1)%vratiolo
                 Vhip1 = Vip1*aero(ii,jj,ab+1)%vratiohi

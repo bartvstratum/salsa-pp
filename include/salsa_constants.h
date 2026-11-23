@@ -32,7 +32,7 @@ namespace Salsa
     constexpr TF grav = 9.81_tf;            // Gravitational acceleration (m s-2)
     constexpr TF rd = 287.04_tf;            // Gas constant of dry air (J kg-1 K-1)
     constexpr TF eddy_dis = 0.001_tf;       // Dissipation rate of turbulent kinetic energy (m2 s-3)
-    constexpr TF eps = Kokkos::Experimental::epsilon_v<TF>;
+    constexpr TF eps = static_cast<TF>(Kokkos::Experimental::epsilon_v<double>);  // Also in float: used as an absolute threshold
 
     constexpr TF msu = 98.08e-3_tf;         // Molar mass of sulphate (kg mol-1)
     constexpr TF moc = 150.e-3_tf;          // Molar mass of organic carbon (kg mol-1)

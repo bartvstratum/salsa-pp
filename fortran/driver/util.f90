@@ -25,9 +25,10 @@ contains
     !     r = (n*sum(x*y) - sum(x)*sum(y)) / (sqrt(n*sum(x**2) - sum(x)**2) * sqrt(n*sum(y**2) - sum(y)**2)).
     ! Two upstream quirks are kept on purpose, so that the reference behaves as upstream:
     ! - the cross term holds only the last product x(n)*y(n), not sum(x*y);
-    ! - r = 0 if either variance term is below epsilon(1.) (absolute). For mass mixing ratios (kg/kg)
+    ! - r = 0 if either variance term is below the epsilon of double (absolute). For mass mixing ratios (kg/kg)
     !   this is nearly always the case, so findDry4Wet then picks the a bin.
     real function calc_correlation(x, y, n)
+        use, intrinsic :: iso_fortran_env, only: real64
         integer, intent(in) :: n
         real, intent(in) :: x(n), y(n)
         real :: sx, sy, sxx, syy, sxy
@@ -38,7 +39,7 @@ contains
         syy = sum(y**2)
         sxy = x(n)*y(n)
 
-        if (n*sxx - sx**2 < epsilon(1.) .or. n*syy - sy**2 < epsilon(1.)) then
+        if (n*sxx - sx**2 < epsilon(1._real64) .or. n*syy - sy**2 < epsilon(1._real64)) then
             calc_correlation = 0.
         else
             calc_correlation = (n*sxy - sx*sy) / (sqrt(n*sxx - sx**2)*sqrt(n*syy - sy**2))

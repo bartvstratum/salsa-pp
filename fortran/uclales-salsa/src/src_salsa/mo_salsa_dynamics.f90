@@ -1127,7 +1127,8 @@ CONTAINS
    REAL FUNCTION acth2o(ppart,pcw)
 
       USE classSection, ONLY : Section
-      USE mo_submctl, ONLY : eps, spec
+      USE mo_submctl, ONLY : spec
+      USE, INTRINSIC :: iso_fortran_env, ONLY : real64  ! SALSA++
       IMPLICIT NONE
 
       TYPE(Section), INTENT(in) :: ppart
@@ -1152,7 +1153,9 @@ CONTAINS
       END IF
 
       ! Assume activity coefficient of 1 for water...
-      acth2o = MAX(0.1,znw/max(eps,(znw+zns)))
+      ! SALSA++: epsilon of double, also in single precision: there epsilon(1.) (1.2e-7 mol m-3) is as large as the
+      ! water of small droplets.
+      acth2o = MAX(0.1,znw/max(epsilon(1._real64),(znw+zns)))
 
    END FUNCTION acth2o
 

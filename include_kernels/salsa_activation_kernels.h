@@ -79,9 +79,13 @@ namespace Salsa
         const TF volume_threshold = 1.e-28_tf;      // Less than the volume of a 1 nm particle (m3)
         const TF none = 999._tf;
 
+        // The particle volumes of the profiles are scaled by 2^60: in m3 their slopes and cubes over- and underflow
+        // in float. A power of two scales exactly, so the results are the same as unscaled where nothing overflows.
+        const TF volume_scale = static_cast<TF>(1ull << 60);
+
         const TF kelvin = 4._tf*mwa*surfw0/(rg*rhowa*T);
         const TF d_crit = 2._tf*kelvin/(3._tf*((rv/rs) - 1._tf));
-        const TF v_crit = pi6*(d_crit*d_crit*d_crit);
+        const TF v_crit = pi6*(d_crit*d_crit*d_crit)*volume_scale;
 
         auto parallel_aer = [&](const int cb)
         {
@@ -132,8 +136,8 @@ namespace Salsa
 
             // Dry and wet volume of a particle, in the current bin and at its limits.
             const TF n_mid = number[ab];
-            const TF vw_mid = volume_wet(ab)/n_mid;
-            const TF v_mid = volume_dry(ab)/n_mid;
+            const TF vw_mid = volume_wet(ab)/n_mid*volume_scale;
+            const TF v_mid = volume_dry(ab)/n_mid*volume_scale;
             const TF v_lo = v_mid*volume_ratio_low(ab);
             const TF v_hi = v_mid*volume_ratio_high(ab);
 
@@ -157,14 +161,14 @@ namespace Salsa
                 n_im1 = number[ab-1];
                 if (n_im1 > number_limit(ab-1))
                 {
-                    v_im1 = volume_dry(ab-1)/n_im1;
-                    vw_im1 = volume_wet(ab-1)/n_im1;
+                    v_im1 = volume_dry(ab-1)/n_im1*volume_scale;
+                    vw_im1 = volume_wet(ab-1)/n_im1*volume_scale;
                 }
                 else
                 {
                     const TF d = diameter_mid(ab-1);
-                    v_im1 = pi6*(d*d*d);
-                    vw_im1 = pi6*(d*d*d);
+                    v_im1 = pi6*(d*d*d)*volume_scale;
+                    vw_im1 = pi6*(d*d*d)*volume_scale;
                 }
                 v_lo_im1 = v_im1*volume_ratio_low(ab-1);
                 v_hi_im1 = v_im1*volume_ratio_high(ab-1);
@@ -190,14 +194,14 @@ namespace Salsa
                 n_ip1 = number[ab+1];
                 if (n_ip1 > number_limit(ab+1))
                 {
-                    v_ip1 = volume_dry(ab+1)/n_ip1;
-                    vw_ip1 = volume_wet(ab+1)/n_ip1;
+                    v_ip1 = volume_dry(ab+1)/n_ip1*volume_scale;
+                    vw_ip1 = volume_wet(ab+1)/n_ip1*volume_scale;
                 }
                 else
                 {
                     const TF d = diameter_mid(ab+1);
-                    v_ip1 = pi6*(d*d*d);
-                    vw_ip1 = pi6*(d*d*d);
+                    v_ip1 = pi6*(d*d*d)*volume_scale;
+                    vw_ip1 = pi6*(d*d*d)*volume_scale;
                 }
                 v_lo_ip1 = v_ip1*volume_ratio_low(ab+1);
                 v_hi_ip1 = v_ip1*volume_ratio_high(ab+1);

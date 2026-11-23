@@ -68,6 +68,7 @@ namespace Salsa
             solute += dissociation(s)*volume[s]*density(s)/molar_mass(s);
 
         // A copy of eps: device code cannot bind a namespace constant to the reference argument of Kokkos::max.
+        // A floor at the float epsilon (1.2e-7 mol m-3) would be as large as the water of small droplets.
         return Kokkos::max(0.1_tf, water/Kokkos::max(TF(eps), water + solute));
     }
 
