@@ -36,6 +36,8 @@ namespace Salsa
 
     constexpr TF msu = 98.08e-3_tf;         // Molar mass of sulphate (kg mol-1)
     constexpr TF moc = 150.e-3_tf;          // Molar mass of organic carbon (kg mol-1)
+    constexpr TF mno = 62.01e-3_tf;         // Molar mass of HNO3 (kg mol-1)
+    constexpr TF mnh = 18.04e-3_tf;         // Molar mass of NH3 (kg mol-1)
     constexpr TF rhosu = 1830._tf;          // Density of sulphate (kg m-3)
     constexpr TF rhooc = 1400._tf;          // Density of organic carbon (kg m-3)
     constexpr TF mvsu = msu/avog/rhosu;     // Volume of one sulphate molecule (m3)

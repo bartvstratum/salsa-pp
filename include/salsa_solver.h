@@ -80,6 +80,20 @@ namespace Salsa
                     const int kstart,
                     const int kend);
 
+            // Fortran: constrain_SALSA.f90: SALSA_diagnostics (without clipping)
+            // Removes small particles on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), on the
+            // fields after the time integration, as UCLALES-SALSA after each step.
+            void remove_small_particles(
+                    const Array_4d<TF>& fields,                     // (n, k, j, i), n in the order of the layout
+                    const Array_3d<const TF>& T,                    // K
+                    const Array_3d<const TF>& rh,                   // Relative humidity at the start of the step
+                    const int istart,
+                    const int iend,
+                    const int jstart,
+                    const int jend,
+                    const int kstart,
+                    const int kend);
+
         private:
             const Layout layout;
 
@@ -120,5 +134,7 @@ namespace Salsa
             const int idu;
             const int iss;
             const int iwa;
+            const int ino;
+            const int inh;
     };
 }

@@ -17,6 +17,7 @@
 #include "salsa_activation_kernels.h"
 #include "salsa_distribution_kernels.h"
 #include "salsa_coagulation_kernels.h"
+#include "salsa_cleanup_kernels.h"
 
 
 namespace
@@ -90,7 +91,9 @@ namespace Salsa
         ibc(species_index(layout.species, "BC")),
         idu(species_index(layout.species, "DU")),
         iss(species_index(layout.species, "SS")),
-        iwa(species_index(layout.species, "H2O"))
+        iwa(species_index(layout.species, "H2O")),
+        ino(species_index(layout.species, "NO")),
+        inh(species_index(layout.species, "NH"))
     {
         if (coagulation_mode != 1 || autoconversion_mode != 1 || activation_mode != 1)
             throw std::runtime_error("Only mode 1 is supported for coagulation, autoconversion and activation");
@@ -427,6 +430,80 @@ namespace Salsa
                             update(gas_field(g, n_bins, n_species), gas[g]/rho_ijk);
 
                     rv_tend(k, j, i) += (rv_ijk - rv_old)/dt;
+                });
+    }
+
+
+    void Solver::remove_small_particles(
+            const Array_4d<TF>& fields,
+            const Array_3d<const TF>& T,
+            const Array_3d<const TF>& rh,
+            const int istart,
+            const int iend,
+            const int jstart,
+            const int jend,
+            const int kstart,
+            const int kend)
+    {
+        const int n_bins = layout.n_bins;
+        const int n_species = layout.n_species;
+
+        const int aer_1a_start = layout.aer_1a_start;
+        const int aer_2a_start = layout.aer_2a_start;
+        const int aer_2a_end = layout.aer_2a_end;
+        const int aer_2b_start = layout.aer_2b_start;
+        const int aer_2b_end = layout.aer_2b_end;
+        const int cld_a_start = layout.cld_a_start;
+        const int cld_a_end = layout.cld_a_end;
+        const int cld_b_start = layout.cld_b_start;
+        const int cld_b_end = layout.cld_b_end;
+        const int rain_start = layout.rain_start;
+        const int rain_end = layout.rain_end;
+
+        const int iso4 = this->iso4;
+        const int ioc = this->ioc;
+        const int ino = this->ino;
+        const int inh = this->inh;
+        const bool condense_gases = this->condense_gases;
+
+        const Array_1d<TF> density = this->density;
+        const Array_1d<TF> molar_mass = this->molar_mass;
+        const Array_1d<TF> dissociation = this->dissociation;
+        const Array_1d<TF> diameter_low = this->diameter_low;
+
+        Kokkos::parallel_for("salsa_remove_small_particles",
+                Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
+                KOKKOS_LAMBDA(const int k, const int j, const int i)
+                {
+                    Salsa::remove_small_particles(
+                            fields,
+                            k,
+                            j,
+                            i,
+                            density,
+                            molar_mass,
+                            dissociation,
+                            diameter_low,
+                            T(k, j, i),
+                            rh(k, j, i),
+                            condense_gases,
+                            iso4,
+                            ioc,
+                            ino,
+                            inh,
+                            n_species,
+                            aer_1a_start,
+                            aer_2a_start,
+                            aer_2a_end,
+                            aer_2b_start,
+                            aer_2b_end,
+                            cld_a_start,
+                            cld_a_end,
+                            cld_b_start,
+                            cld_b_end,
+                            rain_start,
+                            rain_end,
+                            n_bins);
                 });
     }
 }
