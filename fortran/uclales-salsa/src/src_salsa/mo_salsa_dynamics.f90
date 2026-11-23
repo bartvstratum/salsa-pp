@@ -746,6 +746,7 @@ CONTAINS
       INTEGER :: nstr
       INTEGER :: ii,jj,cc
       INTEGER :: counter      
+      INTEGER :: nsub, isub  ! SALSA++: number of condensation substeps
       INTEGER :: iwa,irim,nspec
 
       REAL, ALLOCATABLE :: vrate(:)
@@ -985,9 +986,12 @@ CONTAINS
             ! ---------------------------------
             zcwint = 0.
             counter = 0
-            DO WHILE (ttot < ptstep)
+            ! SALSA++: a whole number of substeps of about 0.02 s that add up to ptstep. DO WHILE (ttot < ptstep) did
+            ! one substep too many when the summed adt ended just below ptstep.
+            nsub = MAX(1, NINT(ptstep/2.e-2))
+            adt = ptstep/REAL(nsub)
+            DO isub = 1, nsub
 
-               adt = 2.e-2
                ! New vapor concentration
                zhlp1 = zcwc + adt * ( SUM(zmtae(nstr:nbins)*zwsatae(nstr:nbins)*zcwsurfae(nstr:nbins))  + &
                                       SUM(zmtcd(1:ncld)*zwsatcd(1:ncld)*zcwsurfcd(1:ncld))              + &

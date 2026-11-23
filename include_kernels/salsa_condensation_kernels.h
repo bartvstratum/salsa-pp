@@ -390,8 +390,10 @@ namespace Salsa
             if (number[b] > number_limit(b))
                 any_rain_section = true;
 
-        // Substeps; regime 1a is in equilibrium and does not take part.
-        const TF adt = 2.e-2_tf;
+        // Substeps of about 0.02 s that add up to dt; regime 1a is in equilibrium and does not take part.
+        const TF adt_target = 2.e-2_tf;
+        const int n_substeps = Kokkos::max(1, static_cast<int>(Kokkos::round(dt/adt_target)));
+        const TF adt = dt/static_cast<TF>(n_substeps);
         const TF max_change = 1.e-1_tf;
 
         Bin_array cw_new;
@@ -399,9 +401,8 @@ namespace Salsa
             cw_new[b] = cw[b];
 
         TF cw_vapour_new = 0._tf;
-        TF ttot = 0._tf;
 
-        while (ttot < dt)
+        for (int n=0; n<n_substeps; ++n)
         {
             TF source_aer = 0._tf;
             TF sink_aer = 0._tf;
@@ -471,8 +472,6 @@ namespace Salsa
             for (int b=0; b<rain_end; ++b)
                 cw[b] = cw_new[b];
             cw_vapour = cw_vapour_new;
-
-            ttot = ttot + adt;
         }
 
         rv = cw_vapour_new*mwa/rhoair;
