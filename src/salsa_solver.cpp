@@ -137,9 +137,9 @@ namespace Salsa
             const int kstart,
             const int kend)
     {
-        // Not ported yet: coagulation involving cloud and rain, and autoconversion (part of cloud coagulation).
-        if (do_coagulation && (coagulate_cld || cld_collects_aer || rain_collects_cld || rain_collects_aer || coagulate_rain))
-            throw std::runtime_error("Coagulation with cloud or rain is not ported yet: switch off lscgcc, lscgca, lscgpc, lscgpa, lscgpp");
+        // Not ported yet: coagulation involving rain, and autoconversion (part of cloud coagulation).
+        if (do_coagulation && (rain_collects_cld || rain_collects_aer || coagulate_rain))
+            throw std::runtime_error("Coagulation with rain is not ported yet: switch off lscgpc, lscgpa, lscgpp");
         if (do_autoconversion)
             throw std::runtime_error("Autoconversion is not ported yet");
 
@@ -169,6 +169,8 @@ namespace Salsa
 
         const TF rh_limit = this->rh_limit;
         const bool coagulate_aer = this->coagulate_aer;
+        const bool coagulate_cld = this->coagulate_cld;
+        const bool cld_collects_aer = this->cld_collects_aer;
         const bool do_condense_gases = this->condense_gases;
         const bool condense_water_aer = this->condense_water_aer;
         const bool condense_water_cld = this->condense_water_cld;
@@ -265,6 +267,8 @@ namespace Salsa
                                 p_ijk,
                                 dt,
                                 coagulate_aer,
+                                coagulate_cld,
+                                cld_collects_aer,
                                 n_species,
                                 aer_1a_start,
                                 aer_1a_end,
@@ -272,6 +276,10 @@ namespace Salsa
                                 aer_2a_end,
                                 aer_2b_start,
                                 aer_2b_end,
+                                cld_a_start,
+                                cld_a_end,
+                                cld_b_start,
+                                cld_b_end,
                                 n_bins);
 
                     // Fortran: mo_salsa_dynamics.f90: condensation
