@@ -143,10 +143,6 @@ namespace Salsa
             const int kstart,
             const int kend)
     {
-        // Not ported yet: coagulation involving rain.
-        if (do_coagulation && (rain_collects_cld || rain_collects_aer || coagulate_rain))
-            throw std::runtime_error("Coagulation with rain is not ported yet: switch off lscgpc, lscgpa, lscgpp");
-
         const int n_bins = layout.n_bins;
         const int n_species = layout.n_species;
         const int n_dry = n_species - 1;
@@ -175,6 +171,9 @@ namespace Salsa
         const bool coagulate_aer = this->coagulate_aer;
         const bool coagulate_cld = this->coagulate_cld;
         const bool cld_collects_aer = this->cld_collects_aer;
+        const bool rain_collects_cld = this->rain_collects_cld;
+        const bool rain_collects_aer = this->rain_collects_aer;
+        const bool coagulate_rain = this->coagulate_rain;
         const bool do_condense_gases = this->condense_gases;
         const bool condense_water_aer = this->condense_water_aer;
         const bool condense_water_cld = this->condense_water_cld;
@@ -276,6 +275,9 @@ namespace Salsa
                                 coagulate_aer,
                                 coagulate_cld,
                                 cld_collects_aer,
+                                rain_collects_cld,
+                                rain_collects_aer,
+                                coagulate_rain,
                                 n_species,
                                 aer_1a_start,
                                 aer_1a_end,

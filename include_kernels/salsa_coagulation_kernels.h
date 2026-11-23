@@ -393,17 +393,18 @@ namespace Salsa
     // Fortran: mo_salsa_coagulation_processes.f90: coag_aero (without rain and ice)
     // Semi-implicit, bin by bin with the updated state of the bins before: a bin loses particles to larger bins
     // and to itself, and gains the volume of the smaller bins it collects.
-    template<typename Kernel_aa, typename Kernel_ca>
+    template<typename Kernel_aa, typename Kernel_cross>
     KOKKOS_INLINE_FUNCTION
     void coagulate_aerosol(
             Bin_array& number,
             Bin_species_array& volume,
             const Kernel_aa& kernel_aa,
-            const Kernel_ca& kernel_ca,                     // Aerosol bin first, cloud bin second
+            const Kernel_cross& kernel_cross,               // Between categories, the smaller category first
             const Array_1d<TF>& number_limit,
             const TF dt,
             const bool coagulate_aer,
             const bool cld_collects_aer,
+            const bool rain_collects_aer,
             const int n_species,
             const int aer_1a_start,
             const int aer_1a_end,
@@ -414,7 +415,9 @@ namespace Salsa
             const int cld_a_start,
             const int cld_a_end,
             const int cld_b_start,
-            const int cld_b_end)
+            const int cld_b_end,
+            const int rain_start,
+            const int rain_end)
     {
         const TF one = 1._tf;
         const TF half = 0.5_tf;
@@ -425,9 +428,9 @@ namespace Salsa
         auto source_from_cloud = [&](const int cld_a_last, const int cld_b_last, const int b)
         {
             if (cld_a_last >= cld_a_start)
-                accumulate_source_reverse(source, kernel_ca, volume, b, cld_a_start, cld_a_last+1, n_species);
+                accumulate_source_reverse(source, kernel_cross, volume, b, cld_a_start, cld_a_last+1, n_species);
             if (cld_b_last >= cld_b_start)
-                accumulate_source_reverse(source, kernel_ca, volume, b, cld_b_start, cld_b_last+1, n_species);
+                accumulate_source_reverse(source, kernel_cross, volume, b, cld_b_start, cld_b_last+1, n_species);
         };
 
         // Regime 1a.
@@ -454,9 +457,13 @@ namespace Salsa
             // Collection by larger and equal cloud bins.
             if (cld_collects_aer)
             {
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_a, cld_a_end, one);
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_b, cld_b_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_a, cld_a_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_b, cld_b_end, one);
             }
+
+            // Collection by rain.
+            if (rain_collects_aer)
+                accumulate_sink(sink, kernel_cross, number, b, rain_start, rain_end, one);
 
             if (coagulate_aer && b > aer_1a_start)
                 accumulate_source(source, kernel_aa, volume, b, aer_1a_start, b, n_species);
@@ -498,9 +505,13 @@ namespace Salsa
 
             if (cld_collects_aer)
             {
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_a, cld_a_end, one);
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_b, cld_b_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_a, cld_a_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_b, cld_b_end, one);
             }
+
+            // Collection by rain.
+            if (rain_collects_aer)
+                accumulate_sink(sink, kernel_cross, number, b, rain_start, rain_end, one);
 
             if (coagulate_aer)
             {
@@ -545,9 +556,13 @@ namespace Salsa
 
             if (cld_collects_aer)
             {
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_a, cld_a_end, one);
-                accumulate_sink(sink, kernel_ca, number, b, b_cld_b, cld_b_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_a, cld_a_end, one);
+                accumulate_sink(sink, kernel_cross, number, b, b_cld_b, cld_b_end, one);
             }
+
+            // Collection by rain.
+            if (rain_collects_aer)
+                accumulate_sink(sink, kernel_cross, number, b, rain_start, rain_end, one);
 
             if (coagulate_aer)
             {
@@ -571,13 +586,13 @@ namespace Salsa
     // As coag_aero. Cloud bins of regime a and b are parallel to aerosol 2a and 2b; a cloud bin collects the
     // aerosol up to its parallel bins, and is collected by the larger aerosol bins (reverse collection).
     // With autoconversion (mode 1), cloud-cloud collisions that form drops of rain size go to the rain bins.
-    template<typename Kernel_cc, typename Kernel_ca>
+    template<typename Kernel_cc, typename Kernel_cross>
     KOKKOS_INLINE_FUNCTION
     void coagulate_cloud(
             Bin_array& number,
             Bin_species_array& volume,
             const Kernel_cc& kernel_cc,
-            const Kernel_ca& kernel_ca,                     // Aerosol bin first, cloud bin second
+            const Kernel_cross& kernel_cross,               // Between categories, the smaller category first
             const Bin_array& d_wet,
             const Array_1d<TF>& diameter_low,
             const Array_1d<TF>& number_limit,
@@ -585,6 +600,7 @@ namespace Salsa
             const bool autoconversion,
             const bool coagulate_cld,
             const bool cld_collects_aer,
+            const bool rain_collects_cld,
             const int n_species,
             const int aer_1a_start,
             const int aer_2a_start,
@@ -653,8 +669,8 @@ namespace Salsa
             // Collection by larger aerosol bins in 2a and 2b.
             if (cld_collects_aer && b < own_end-1)
             {
-                accumulate_sink_reverse(sink, kernel_ca, number, b, aer_2a_start + i + 1, aer_2a_end);
-                accumulate_sink_reverse(sink, kernel_ca, number, b, aer_2b_start + i + 1, aer_2b_end);
+                accumulate_sink_reverse(sink, kernel_cross, number, b, aer_2a_start + i + 1, aer_2a_end);
+                accumulate_sink_reverse(sink, kernel_cross, number, b, aer_2b_start + i + 1, aer_2b_end);
             }
 
             // Collection by larger cloud bins in both regimes, and self collection.
@@ -672,11 +688,15 @@ namespace Salsa
                     accumulate_sink(sink_self, kernel_cc, number, b, b, b+1, half);
             }
 
+            // Collection by rain.
+            if (rain_collects_cld)
+                accumulate_sink(sink, kernel_cross, number, b, rain_start, rain_end, one);
+
             // Volume gained from smaller and equal aerosol bins.
             if (cld_collects_aer)
             {
-                accumulate_source(source, kernel_ca, volume, b, aer_1a_start, aer_2a_start + i + 1, n_species);
-                accumulate_source(source, kernel_ca, volume, b, aer_2b_start, aer_2b_start + i + 1, n_species);
+                accumulate_source(source, kernel_cross, volume, b, aer_1a_start, aer_2a_start + i + 1, n_species);
+                accumulate_source(source, kernel_cross, volume, b, aer_2b_start, aer_2b_start + i + 1, n_species);
             }
 
             // Volume gained from smaller cloud bins in the own regime, and smaller or equal in the other.
@@ -721,7 +741,127 @@ namespace Salsa
     }
 
 
-    // Fortran: mo_salsa_dynamics.f90: coagulation (without rain coagulation and ice; kernel mode 1)
+    // Fortran: mo_salsa_coagulation_processes.f90: precipSelfCoag
+    // Volume and number of rain bin b that self collection moves to the next bin.
+    template<typename Kernel>
+    KOKKOS_INLINE_FUNCTION
+    void precip_self_coagulation(
+            Species_array& volume_self,
+            TF& number_self,
+            const Kernel& kernel,
+            const Bin_array& number,
+            const Bin_species_array& volume,
+            const int b,
+            const int n_species)
+    {
+        for (int s=0; s<n_species; ++s)
+            volume_self[s] = volume_self[s] + volume[b][s]*number[b]*kernel(b, b);
+
+        number_self = number_self + (0.5_tf*kernel(b, b)*number[b]*number[b]);
+    }
+
+
+    // Fortran: mo_salsa_coagulation_processes.f90: applyCoagPrecp
+    // As apply_coagulation; then, for all but the largest bin, the products of self collection go to the next bin.
+    KOKKOS_INLINE_FUNCTION
+    void apply_coagulation_rain(
+            Bin_array& number,
+            Bin_species_array& volume,
+            const Species_array& source,
+            const TF sink,
+            const TF sink_self,
+            const Species_array& volume_self,
+            const TF number_self,
+            const TF dt,
+            const int b,
+            const int n_species,
+            const int rain_end)
+    {
+        apply_coagulation(number, volume, source, sink, sink_self, dt, b, n_species);
+
+        if (b < rain_end-1)
+        {
+            for (int s=0; s<n_species; ++s)
+                volume[b+1][s] = volume[b+1][s] + dt*volume_self[s];
+            number[b+1] = number[b+1] + dt*number_self;
+
+            for (int s=0; s<n_species; ++s)
+                volume[b][s] = volume[b][s] - dt*volume_self[s];
+            number[b] = number[b] - dt*number_self;
+        }
+    }
+
+
+    // Fortran: mo_salsa_coagulation_processes.f90: coag_precp (without ice)
+    // Rain collects all aerosol, all cloud and the smaller rain bins, and is collected by the larger rain bins.
+    template<typename Kernel_rr, typename Kernel_cross>
+    KOKKOS_INLINE_FUNCTION
+    void coagulate_rain(
+            Bin_array& number,
+            Bin_species_array& volume,
+            const Kernel_rr& kernel_rr,
+            const Kernel_cross& kernel_cross,               // Between categories, the smaller category first
+            const Array_1d<TF>& number_limit,
+            const TF dt,
+            const bool coagulate_rain,
+            const bool rain_collects_aer,
+            const bool rain_collects_cld,
+            const int n_species,
+            const int aer_1a_start,
+            const int aer_2b_end,
+            const int cld_a_start,
+            const int cld_b_end,
+            const int rain_start,
+            const int rain_end)
+    {
+        const TF one = 1._tf;
+        const TF half = 0.5_tf;
+
+        Species_array source;
+        Species_array volume_self;
+
+        for (int b=rain_start; b<rain_end; ++b)
+        {
+            if (number[b] < number_limit(b))
+                continue;
+
+            TF sink = 0._tf;
+            TF sink_self = 0._tf;
+            TF number_self = 0._tf;
+            for (int s=0; s<n_species; ++s)
+            {
+                source[s] = 0._tf;
+                volume_self[s] = 0._tf;
+            }
+
+            // Collection by larger rain and self collection; the largest bin keeps its self collection.
+            if (coagulate_rain)
+            {
+                if (b < rain_end-1)
+                {
+                    accumulate_sink(sink, kernel_rr, number, b, b+1, rain_end, one);
+                    precip_self_coagulation(volume_self, number_self, kernel_rr, number, volume, b, n_species);
+                }
+                else
+                    accumulate_sink(sink_self, kernel_rr, number, b, b, b+1, half);
+            }
+
+            if (rain_collects_aer)
+                accumulate_source(source, kernel_cross, volume, b, aer_1a_start, aer_2b_end, n_species);
+
+            if (rain_collects_cld)
+                accumulate_source(source, kernel_cross, volume, b, cld_a_start, cld_b_end, n_species);
+
+            if (coagulate_rain && b > rain_start)
+                accumulate_source(source, kernel_rr, volume, b, rain_start, b, n_species);
+
+            apply_coagulation_rain(
+                    number, volume, source, sink, sink_self, volume_self, number_self, dt, b, n_species, rain_end);
+        }
+    }
+
+
+    // Fortran: mo_salsa_dynamics.f90: coagulation (without ice; kernel mode 1)
     KOKKOS_INLINE_FUNCTION
     void coagulate(
             Bin_array& number,
@@ -738,6 +878,9 @@ namespace Salsa
             const bool coagulate_aer,
             const bool coagulate_cld,
             const bool cld_collects_aer,
+            const bool rain_collects_cld,
+            const bool rain_collects_aer,
+            const bool coagulate_rain,
             const int n_species,
             const int aer_1a_start,
             const int aer_1a_end,
@@ -760,32 +903,51 @@ namespace Salsa
         for (int b=0; b<n_bins; ++b)
             has_particles[b] = !(number[b] < number_limit(b));
 
-        // Within a category (aerosol or cloud).
+        // Within a category.
         auto kernel_self = [&](const int b1, const int b2)
         {
             return coagulation_kernel_self(b1, b2, d_wet, has_particles, diameter_mid, T, p);
         };
 
-        // Fortran: buildKernel (one element): aerosol bin b_aer and cloud bin b_cld.
-        auto kernel_ca = [&](const int b_aer, const int b_cld)
+        // Fortran: buildKernel (one element): bin b1 of the smaller category and bin b2 of the larger.
+        auto kernel_cross = [&](const int b1, const int b2)
         {
-            if (!has_particles[b_aer] || !has_particles[b_cld])
+            if (!has_particles[b1] || !has_particles[b2])
                 return 0._tf;
 
-            return coagulation_coefficient(
-                    d_wet[b_aer], diameter_mid(b_aer), d_wet[b_cld], diameter_mid(b_cld), T, p);
+            return coagulation_coefficient(d_wet[b1], diameter_mid(b1), d_wet[b2], diameter_mid(b2), T, p);
         };
 
-        if (coagulate_aer || cld_collects_aer)
+        if (coagulate_rain || rain_collects_aer || rain_collects_cld)
+            Salsa::coagulate_rain(
+                    number,
+                    volume,
+                    kernel_self,
+                    kernel_cross,
+                    number_limit,
+                    dt,
+                    coagulate_rain,
+                    rain_collects_aer,
+                    rain_collects_cld,
+                    n_species,
+                    aer_1a_start,
+                    aer_2b_end,
+                    cld_a_start,
+                    cld_b_end,
+                    rain_start,
+                    rain_end);
+
+        if (coagulate_aer || cld_collects_aer || rain_collects_aer)
             coagulate_aerosol(
                     number,
                     volume,
                     kernel_self,
-                    kernel_ca,
+                    kernel_cross,
                     number_limit,
                     dt,
                     coagulate_aer,
                     cld_collects_aer,
+                    rain_collects_aer,
                     n_species,
                     aer_1a_start,
                     aer_1a_end,
@@ -796,14 +958,16 @@ namespace Salsa
                     cld_a_start,
                     cld_a_end,
                     cld_b_start,
-                    cld_b_end);
+                    cld_b_end,
+                    rain_start,
+                    rain_end);
 
-        if (coagulate_cld || cld_collects_aer)
+        if (coagulate_cld || cld_collects_aer || rain_collects_cld)
             coagulate_cloud(
                     number,
                     volume,
                     kernel_self,
-                    kernel_ca,
+                    kernel_cross,
                     d_wet,
                     diameter_low,
                     number_limit,
@@ -811,6 +975,7 @@ namespace Salsa
                     autoconversion,
                     coagulate_cld,
                     cld_collects_aer,
+                    rain_collects_cld,
                     n_species,
                     aer_1a_start,
                     aer_2a_start,
