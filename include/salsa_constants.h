@@ -29,6 +29,9 @@ namespace Salsa
     constexpr TF epsoc = 0.15_tf;           // Water uptake of organic carbon (fraction)
     constexpr TF alv = 2.5e6_tf;            // Latent heat of vaporisation (J kg-1)
     constexpr TF pstand = 1.01325e+5_tf;    // Standard pressure (Pa)
+    constexpr TF grav = 9.81_tf;            // Gravitational acceleration (m s-2)
+    constexpr TF rd = 287.04_tf;            // Gas constant of dry air (J kg-1 K-1)
+    constexpr TF eddy_dis = 0.001_tf;       // Dissipation rate of turbulent kinetic energy (m2 s-3)
     constexpr TF eps = Kokkos::Experimental::epsilon_v<TF>;
 
     constexpr TF msu = 98.08e-3_tf;         // Molar mass of sulphate (kg mol-1)
