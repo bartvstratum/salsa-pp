@@ -146,6 +146,7 @@ namespace Salsa
                 TF d_old = 1._tf;
                 TF lwc = 0._tf;
                 int count = 0;
+                TF change = 0._tf;                          // Relative change of d in the previous iteration
 
                 while (Kokkos::abs(d/d_old - 1._tf) > 1.e-12_tf)
                 {
@@ -165,6 +166,13 @@ namespace Salsa
 
                     d = Kokkos::pow(lwc/number[b]/rhowa/pi6 + core_b/pi6, 1._tf/3._tf);
                     ke_b = Kokkos::exp(2._tf*surfw0*mvwa/(boltz*T*d));
+
+                    // Also stop at the rounding noise, where the change no longer decreases (1e-12 is below it in
+                    // float). The first change is from the initial guess, not an iteration step: compare from the third.
+                    const TF change_new = Kokkos::abs(d/d_old - 1._tf);
+                    if (count >= 2 && change_new >= change)
+                        break;
+                    change = change_new;
 
                     ++count;
                     if (count > max_iterations)

@@ -126,6 +126,12 @@ namespace Salsa
                     const TF v_excess = 0.5_tf*(v_part_high + volume_high(b));
 
                     const TF number_fraction = Kokkos::min(1._tf, (v_part_high - volume_high(b))/(v_part_high - v_part_low));
+
+                    // Not grown past the upper limit: with rounding the fraction can be slightly negative just above
+                    // pi6*dm^3.
+                    if (number_fraction < 0._tf)
+                        continue;
+
                     const TF volume_fraction = Kokkos::min(fraction_max, number_fraction*v_excess/v_part);
 
                     if (volume_fraction < 0._tf)
@@ -246,6 +252,10 @@ namespace Salsa
                         v_excess = 0.5_tf*(v_part_high + volume_high(b));
                         number_fraction = Kokkos::min(fraction_max, (v_part_high - volume_high(b))/(v_part_high - v_part_low));
                         b_to = b+1;
+
+                        // As for aerosol: with rounding the fraction can be slightly negative just above v_mid.
+                        if (number_fraction < 0._tf)
+                            continue;
                     }
                     else
                         continue;

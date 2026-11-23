@@ -103,6 +103,10 @@ CONTAINS
 
                      !-- number fraction to be moved to the larger bin
                      znfrac = min(1., (zVihi-aero(ii,jj,kk)%vhilim) / (zVihi - zVilo))
+
+                     ! SALSA++: not grown past the upper limit; with rounding the fraction can be slightly negative
+                     ! just above pi6*dmid**3.
+                     IF (znfrac < 0.) CYCLE
           
                      !-- volume fraction to be moved to the larger bin
                      !zvfrac = znfrac * zVexc / (1./2.*(zVihi+zVilo))
@@ -292,6 +296,9 @@ CONTAINS
 
                         !-- Index for the larger bin
                         mm = kk + 1
+
+                        ! SALSA++: as for aerosol, with rounding the fraction can be slightly negative.
+                        IF (znfrac < 0.) CYCLE
 
                      ELSE  ! Particle size unchanged
                         CYCLE

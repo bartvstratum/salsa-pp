@@ -117,7 +117,9 @@ CONTAINS
          zaw,        &   ! water activity [0-1]
          zlwc,       &   ! liquid water content [kg/m3-air]
          zdold,      &   !
-         zrh
+         zrh,        &
+         zchange,    &   ! SALSA++: relative change of zdwet in the previous iteration
+         zchange_new
       REAL :: zcore,  &
               zdwet
 
@@ -302,6 +304,7 @@ CONTAINS
                      zrh = MIN(zrh , 0.98)
 
                      count = 0
+                     zchange = 0.
                      DO WHILE(abs(zdwet/zdold-1.) > 1.e-12)
                         zdold = max(zdwet,1.e-20)
 
@@ -347,6 +350,12 @@ CONTAINS
 
                         !-- Kelvin effect
                         zke = exp(2.*surfw0*mvwa/(boltz*ptemp(ii,jj)*zdwet)) ! Silvia 07-08-2025: Molar volume of water. It was mvsu
+
+                        ! SALSA++: also stop at the rounding noise, where the change no longer decreases (1e-12 is below
+                        ! it in single precision). The first change is from the initial guess: compare from the third.
+                        zchange_new = abs(zdwet/zdold-1.)
+                        IF (count >= 2 .AND. zchange_new >= zchange) EXIT
+                        zchange = zchange_new
 
                         count = count + 1
                         IF (count > 100) THEN
