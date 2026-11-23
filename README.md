@@ -12,7 +12,7 @@ Requires a C++20 compiler and CMake ≥ 3.20. Kokkos is a submodule (`git submod
     cd build/cpu
     cmake ../.. -DSYST=ubuntu_22lts_gcc
     make -j
-    ./main_cpp/salsa_test
+    ./main_cpp/salsa_bench 32 32 32 1
 
 One build directory per configuration, e.g. `build/gpu_sp` with `cmake ../.. -DSYST=ubuntu_22lts_gcc -DUSEGPU=1 -DUSESP=1`.
 

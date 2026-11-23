@@ -20,8 +20,8 @@ if (GIT_FOUND)
 endif()
 configure_file(salsa_version.h.in ${CMAKE_BINARY_DIR}/generated/salsa_version.h @ONLY)
 
-add_executable(salsa_test salsa_test.cpp)
-target_link_libraries(salsa_test PRIVATE salsa)
+add_executable(salsa_bench salsa_bench.cpp)
+target_link_libraries(salsa_bench PRIVATE salsa)
 
 add_executable(salsa_0d salsa_0d.cpp salsa_0d_io.cpp)
 target_include_directories(salsa_0d PRIVATE ${CMAKE_BINARY_DIR}/generated SYSTEM ${INCLUDE_DIRS})
