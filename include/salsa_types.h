@@ -60,9 +60,12 @@ namespace Salsa
     // Device code cannot allocate, so the state of a grid point has compile-time sizes.
     constexpr int max_bins = 64;
     constexpr int max_species = 8;
+    constexpr int max_bins_rain = 16;
 
     // Work arrays of one grid point.
     using Bin_array = TF[max_bins];
     using Bin_species_array = TF[max_bins][max_species];
     using Species_array = TF[max_species];
+    using Rain_species_array = TF[max_bins_rain][max_species];
+    using Rain_array = TF[max_bins_rain];
 }

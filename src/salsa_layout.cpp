@@ -220,5 +220,7 @@ namespace Salsa
             throw std::runtime_error("More bins than max_bins in salsa_types.h");
         if (n_species > max_species)
             throw std::runtime_error("More species than max_species in salsa_types.h");
+        if (rain_end - rain_start > max_bins_rain)
+            throw std::runtime_error("More rain bins than max_bins_rain in salsa_types.h");
     }
 }

@@ -6,6 +6,7 @@
  * The solver: one SALSA step for all grid points.
  */
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -101,6 +102,11 @@ namespace Salsa
         diameter_mid = to_device("diameter_mid", layout.diameter_mid);
         number_limit = to_device("number_limit", layout.number_limit);
         diameter_limit = to_device("diameter_limit", layout.diameter_limit);
+
+        std::vector<TF> diameter_low_h(layout.n_bins);
+        for (int b=0; b<layout.n_bins; ++b)
+            diameter_low_h[b] = std::pow(layout.volume_low[b]/pi6, 1._tf/3._tf);
+        diameter_low = to_device("diameter_low", diameter_low_h);
         dissociation = to_device("dissociation", layout.dissociation);
         volume_ratio_low = to_device("volume_ratio_low", layout.volume_ratio_low);
         volume_ratio_high = to_device("volume_ratio_high", layout.volume_ratio_high);
@@ -137,11 +143,9 @@ namespace Salsa
             const int kstart,
             const int kend)
     {
-        // Not ported yet: coagulation involving rain, and autoconversion (part of cloud coagulation).
+        // Not ported yet: coagulation involving rain.
         if (do_coagulation && (rain_collects_cld || rain_collects_aer || coagulate_rain))
             throw std::runtime_error("Coagulation with rain is not ported yet: switch off lscgpc, lscgpa, lscgpp");
-        if (do_autoconversion)
-            throw std::runtime_error("Autoconversion is not ported yet");
 
         const int n_bins = layout.n_bins;
         const int n_species = layout.n_species;
@@ -182,6 +186,7 @@ namespace Salsa
         const Array_1d<TF> diameter_mid = this->diameter_mid;
         const Array_1d<TF> number_limit = this->number_limit;
         const Array_1d<TF> diameter_limit = this->diameter_limit;
+        const Array_1d<TF> diameter_low = this->diameter_low;
         const Array_1d<TF> dissociation = this->dissociation;
         const Array_1d<TF> volume_ratio_low = this->volume_ratio_low;
         const Array_1d<TF> volume_ratio_high = this->volume_ratio_high;
@@ -262,10 +267,12 @@ namespace Salsa
                                 d_wet,
                                 diameter_mid,
                                 diameter_limit,
+                                diameter_low,
                                 number_limit,
                                 T_ijk,
                                 p_ijk,
                                 dt,
+                                do_autoconversion,
                                 coagulate_aer,
                                 coagulate_cld,
                                 cld_collects_aer,
@@ -280,6 +287,8 @@ namespace Salsa
                                 cld_a_end,
                                 cld_b_start,
                                 cld_b_end,
+                                rain_start,
+                                rain_end,
                                 n_bins);
 
                     // Fortran: mo_salsa_dynamics.f90: condensation

@@ -87,6 +87,7 @@ namespace Salsa
             Array_1d<TF> diameter_mid;
             Array_1d<TF> number_limit;
             Array_1d<TF> diameter_limit;
+            Array_1d<TF> diameter_low;                      // Diameter of the lower volume limit; Fortran: precpbins (rain)
             Array_1d<TF> dissociation;
             Array_1d<TF> volume_ratio_low;
             Array_1d<TF> volume_ratio_high;
