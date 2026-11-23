@@ -147,7 +147,7 @@ CONTAINS
       nspc = spec%getNSpec()
 
       zvolc = 0.
-      DO cc = 1,5   ! Loop over massindx-array
+      DO cc = 1,7   ! Loop over massindx-array; SALSA++: was 1,5, which left out NO and NH
          DO kk = in1a,fn2b
             DO jj = 1,klev
                DO ii = 1,kbdim

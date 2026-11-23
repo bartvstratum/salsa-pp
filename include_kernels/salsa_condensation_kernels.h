@@ -245,6 +245,8 @@ namespace Salsa
             const int ibc,
             const int idu,
             const int iss,
+            const int ino,
+            const int inh,
             const int iwa,
             const int n_species,
             const int aer_1a_start,
@@ -270,12 +272,12 @@ namespace Salsa
 
         equilibrate_water(
                 number, volume, d_wet, core, diameter_mid, density, molar_mass, rh, T, init_false,
-                iso4, ioc, ibc, idu, iss, iwa, aer_1a_start, aer_1a_end, aer_2a_start, aer_2b_end);
+                iso4, ioc, ibc, idu, iss, ino, inh, iwa, aer_1a_start, aer_1a_end, aer_2a_start, aer_2b_end);
 
         if (rh < 0.98_tf || !condense_water_aer)
             equilibrate_water(
                     number, volume, d_wet, core, diameter_mid, density, molar_mass, rh, T, init_true,
-                    iso4, ioc, ibc, idu, iss, iwa, aer_1a_start, aer_1a_end, aer_2a_start, aer_2b_end);
+                    iso4, ioc, ibc, idu, iss, ino, inh, iwa, aer_1a_start, aer_1a_end, aer_2a_start, aer_2b_end);
 
         TF lwc_new = 0._tf;
         for (int b=aer_1a_start; b<aer_2b_end; ++b)

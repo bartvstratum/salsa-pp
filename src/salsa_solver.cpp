@@ -170,6 +170,8 @@ namespace Salsa
         const int ibc = this->ibc;
         const int idu = this->idu;
         const int iss = this->iss;
+        const int ino = this->ino;
+        const int inh = this->inh;
         const int iwa = this->iwa;
 
         const TF rh_limit = this->rh_limit;
@@ -258,6 +260,8 @@ namespace Salsa
                                 ibc,
                                 idu,
                                 iss,
+                                ino,
+                                inh,
                                 iwa,
                                 aer_1a_start,
                                 aer_1a_end,
@@ -350,6 +354,8 @@ namespace Salsa
                                     ibc,
                                     idu,
                                     iss,
+                                    ino,
+                                    inh,
                                     iwa,
                                     n_species,
                                     aer_1a_start,
