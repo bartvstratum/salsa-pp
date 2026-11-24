@@ -71,6 +71,7 @@ namespace Salsa
             const bool condense_gases,
             const bool condense_water_aer,
             const bool condense_water_cld,
+            const TF dt_condensation,
             const TF rh_limit) :
         layout(regime_limits, n_bins_regime, n_bins_rain, rain_diameter_low, rain_volume_ratio, dry_species),
         coagulation_mode(coagulation_mode),
@@ -85,6 +86,7 @@ namespace Salsa
         condense_gases(condense_gases),
         condense_water_aer(condense_water_aer),
         condense_water_cld(condense_water_cld),
+        dt_condensation(dt_condensation),
         rh_limit(rh_limit),
         iso4(species_index(layout.species, "SO4")),
         ioc(species_index(layout.species, "OC")),
@@ -184,6 +186,7 @@ namespace Salsa
         const bool do_condense_gases = this->condense_gases;
         const bool condense_water_aer = this->condense_water_aer;
         const bool condense_water_cld = this->condense_water_cld;
+        const TF dt_condensation = this->dt_condensation;
 
         const Array_1d<TF> volume_low = this->volume_low;
         const Array_1d<TF> volume_high = this->volume_high;
@@ -347,6 +350,7 @@ namespace Salsa
                                     p_ijk,
                                     rs_ijk,
                                     dt,
+                                    dt_condensation,
                                     condense_water_aer,
                                     condense_water_cld,
                                     iso4,

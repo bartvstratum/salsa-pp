@@ -703,7 +703,8 @@ CONTAINS
           in1a, in2a,  &
           fn2b,            &
           lscndh2oae, lscndh2ocl, lscndh2oic, &
-          alv, als 
+          alv, als, &
+          dtcond  ! SALSA++
      USE mo_salsa_properties, ONLY : equilibration
      IMPLICIT NONE
 
@@ -986,9 +987,9 @@ CONTAINS
             ! ---------------------------------
             zcwint = 0.
             counter = 0
-            ! SALSA++: a whole number of substeps of about 0.02 s that add up to ptstep. DO WHILE (ttot < ptstep) did
-            ! one substep too many when the summed adt ended just below ptstep.
-            nsub = MAX(1, NINT(ptstep/2.e-2))
+            ! SALSA++: a whole number of substeps of about dtcond (namelist, default 0.02 s) that add up to ptstep.
+            ! DO WHILE (ttot < ptstep) did one substep too many when the summed adt ended just below ptstep.
+            nsub = MAX(1, NINT(ptstep/dtcond))
             adt = ptstep/REAL(nsub)
             DO isub = 1, nsub
 

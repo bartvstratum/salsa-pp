@@ -141,6 +141,9 @@ MODULE mo_submctl
   TYPE(ProcessSwitch) :: lsfreeRH   
   REAL :: rhlim = 1.20
 
+  ! SALSA++: target substep length (s) of the water condensation in gpparth2o (upstream fixed 0.02 s).
+  REAL :: dtcond = 2.e-2
+
   ! 1) Switches for aerosol microphysical processes ------------------------
   INTEGER, PARAMETER :: nmod = 7
 

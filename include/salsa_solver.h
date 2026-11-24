@@ -40,6 +40,7 @@ namespace Salsa
                     const bool condense_gases,                      // Fortran: lscndgas
                     const bool condense_water_aer,                  // Fortran: lscndh2oae
                     const bool condense_water_cld,                  // Fortran: lscndh2ocl
+                    const TF dt_condensation,                  // Fortran: dtcond (s)
                     const TF rh_limit);                             // Fortran: rhlim
 
             Solver(const Solver&) = delete;
@@ -124,6 +125,7 @@ namespace Salsa
             const bool condense_gases;
             const bool condense_water_aer;
             const bool condense_water_cld;
+            const TF dt_condensation;
 
             const TF rh_limit;
 

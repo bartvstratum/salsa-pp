@@ -503,6 +503,7 @@ CONTAINS
                              sigmagA,dpgA,nA,             &
                              sigmagB,dpgB,nB,             &
                              lsfreeRH,rhlim,              &
+                             dtcond,                      & ! SALSA++
                              mean_theta_imm,              &
                              sigma_theta_imm,             &
                              mean_theta_dep,              &
@@ -591,6 +592,7 @@ CONTAINS
          volDistB,      & ! Same as above but for b-bins
          lsfreeRH,      & ! Switch for using rhlim
          rhlim,         & ! Upper limit RH/100 for sals during initialization and spinup 
+         dtcond,        & ! SALSA++: target substep length (s) of the water condensation
 
          sigmagA,        & ! Stdev for the 7 initial lognormal modes
          dpgA,           & ! Mean diameter for the 7 initial lognormal modes

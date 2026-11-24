@@ -220,7 +220,7 @@ namespace Salsa
 
     // Fortran: mo_salsa_dynamics.f90: gpparth2o
     // Condensation of water vapour on aerosol, cloud and rain, with the analytical predictor of Jacobson (2005) in
-    // fixed substeps of 0.02 s. Regime 1a and, below RH 98 %, all aerosol are in equilibrium instead.
+    // substeps of about dt_condensation (upstream 0.02 s). Regime 1a and, below RH 98 %, all aerosol are in equilibrium instead.
     KOKKOS_INLINE_FUNCTION
     void condense_water(
             const Bin_array& number,                        // m-3
@@ -238,6 +238,7 @@ namespace Salsa
             const TF p,
             const TF rs,
             const TF dt,
+            const TF dt_condensation,                  // s
             const bool condense_water_aer,
             const bool condense_water_cld,
             const int iso4,                                 // Species indices, -1 if not used
@@ -392,9 +393,8 @@ namespace Salsa
             if (number[b] > number_limit(b))
                 any_rain_section = true;
 
-        // Substeps of about 0.02 s that add up to dt; regime 1a is in equilibrium and does not take part.
-        const TF adt_target = 2.e-2_tf;
-        const int n_substeps = Kokkos::max(1, static_cast<int>(Kokkos::round(dt/adt_target)));
+        // Substeps of about dt_condensation that add up to dt; regime 1a is in equilibrium and does not take part.
+        const int n_substeps = Kokkos::max(1, static_cast<int>(Kokkos::round(dt/dt_condensation)));
         const TF adt = dt/static_cast<TF>(n_substeps);
         const TF max_change = 1.e-1_tf;
 

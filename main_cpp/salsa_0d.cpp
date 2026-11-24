@@ -170,7 +170,7 @@ namespace
                 "lscoag%switch", "lscoag%mode", "lscoag%delay", "lscnd%switch", "lscnd%delay",
                 "lsauto%switch", "lsauto%mode", "lsauto%delay", "lsactiv%switch", "lsactiv%mode", "lsactiv%delay",
                 "lscgaa", "lscgcc", "lscgca", "lscgpc", "lscgpa", "lscgpp", "cgintvl",
-                "lscndgas", "lscndh2oae", "lscndh2ocl", "lsdistupdate", "lsfreerh%switch", "lsfreerh%delay", "rhlim"};
+                "lscndgas", "lscndh2oae", "lscndh2ocl", "lsdistupdate", "lsfreerh%switch", "lsfreerh%delay", "rhlim", "dtcond"};
 
         for (const auto& item : salsa)
             if (supported.find(item.first) == supported.end())
@@ -233,6 +233,7 @@ namespace
         const bool free_rh_on = get_item<bool>(salsa, "lsfreerh%switch", false);
         const TF free_rh_delay = get_item<TF>(salsa, "lsfreerh%delay", 0._tf);
         const TF rh_limit = get_item<TF>(salsa, "rhlim", 1.20_tf);
+        const TF dt_condensation = get_item<TF>(salsa, "dtcond", 2.e-2_tf);
 
         Solver solver(
                 regime_limits,
@@ -253,6 +254,7 @@ namespace
                 condense_gases,
                 condense_water_aer,
                 condense_water_cld,
+                dt_condensation,
                 rh_limit);
 
         const Layout& layout = solver.get_layout();

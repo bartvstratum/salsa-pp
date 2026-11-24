@@ -139,6 +139,7 @@ namespace
         const bool condense_water_aer = true;
         const bool condense_water_cld = true;
 
+        const TF dt_condensation = 2.e-2_tf;
         const TF rh_limit = 1.20_tf;
 
         Solver solver(
@@ -160,6 +161,7 @@ namespace
                 condense_gases,
                 condense_water_aer,
                 condense_water_cld,
+                dt_condensation,
                 rh_limit);
 
         const Layout& layout = solver.get_layout();
