@@ -310,6 +310,35 @@ namespace
             integrate(!initialize);
         }
 
+        // Mean aerosol and cloud number (# kg-1) per layer after the spin-up, to check that the cloud bins are filled.
+        Kokkos::deep_copy(fields_h, fields);
+        {
+            const std::vector<std::string> layer_names = {"below cloud", "cloud layer", "above cloud"};
+            std::array<double, 3> number_aer = {0., 0., 0.};
+            std::array<double, 3> number_cld = {0., 0., 0.};
+            std::array<double, 3> n_layer_points = {0., 0., 0.};
+
+            for (int k=kstart; k<kend; ++k)
+            {
+                const TF z = (k - kstart + 0.5_tf)/ktot*domain_height;
+                const int layer = (z < cloud_base) ? 0 : (z < cloud_top) ? 1 : 2;
+
+                for (int j=jstart; j<jend; ++j)
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        for (int b=layout.aer_1a_start; b<layout.aer_2b_end; ++b)
+                            number_aer[layer] += fields_h(layout.number_field(b), k, j, i);
+                        for (int b=layout.cld_a_start; b<layout.cld_b_end; ++b)
+                            number_cld[layer] += fields_h(layout.number_field(b), k, j, i);
+                        n_layer_points[layer] += 1.;
+                    }
+            }
+
+            for (int l=0; l<3; ++l)
+                std::printf("After spin-up, %-12s: aerosol N = %.3e, cloud N = %.3e kg-1\n",
+                        layer_names[l].c_str(), number_aer[l]/n_layer_points[l], number_cld[l]/n_layer_points[l]);
+        }
+
         // Start state of every timed call.
         Array_4d<TF> fields_start("fields_start", layout.n_fields, kcells, jcells, icells);
         Array_4d<TF> diameter_wet_start("diameter_wet_start", layout.n_bins, kcells, jcells, icells);
