@@ -55,9 +55,11 @@ namespace Salsa
 
             // Runs on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), and adds the change of the
             // fields and of rv over dt as tendencies, as run_SALSA in UCLALES-SALSA. The host applies them.
+            // Starts from fields + dt*fields_tend and rv + dt*rv_tend; the change is limited so that no field
+            // becomes negative.
             void exec(
-                    const Array_4d<TF>& fields_tend,                // (n, k, j, i), per s
-                    const Array_3d<TF>& rv_tend,                    // kg kg-1 s-1
+                    const Array_4d<TF>& fields_tend,                // (n, k, j, i), per s; in: other processes
+                    const Array_3d<TF>& rv_tend,                    // kg kg-1 s-1; in: other processes
                     const Array_4d<const TF>& fields,               // (n, k, j, i), n in the order of the layout
                     const Array_3d<const TF>& rv,                   // Water vapour mixing ratio (kg kg-1)
                     const Array_3d<const TF>& T,                    // K

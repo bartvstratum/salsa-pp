@@ -215,16 +215,23 @@ namespace Salsa
                     const TF p_ijk = p(k);
                     const TF rs_ijk = rs(k, j, i);
                     const TF rho_ijk = rho(k);
-                    TF rv_ijk = free_rh ? rv(k, j, i) : Kokkos::min(rv(k, j, i), rs_ijk*rh_limit);
+                    // State at the end of the step from the tendencies of the other processes (zero in the drivers).
+                    auto field_up = [&](const int n)
+                    {
+                        return fields(n, k, j, i) + dt*fields_tend(n, k, j, i);
+                    };
+
+                    const TF rv_up = rv(k, j, i) + dt*rv_tend(k, j, i);
+                    TF rv_ijk = free_rh ? rv_up : Kokkos::min(rv_up, rs_ijk*rh_limit);
 
                     const TF rv_old = rv_ijk;
 
                     for (int b=0; b<n_bins; ++b)
                     {
                         for (int s=0; s<n_species; ++s)
-                            volume[b][s] = fields(mass_field(b, s, n_species), k, j, i)*rho_ijk/density(s);
+                            volume[b][s] = field_up(mass_field(b, s, n_species))*rho_ijk/density(s);
 
-                        number[b] = fields(number_field(b, n_species), k, j, i)*rho_ijk;
+                        number[b] = field_up(number_field(b, n_species))*rho_ijk;
 
                         if (number[b] > number_limit(b))
                         {
@@ -245,7 +252,7 @@ namespace Salsa
                     update_wet_diameter(number, volume, d_wet, diameter_mid, diameter_limit, number_limit, n_species, n_bins);
 
                     for (int g=0; g<Gas::count; ++g)
-                        gas[g] = fields(gas_field(g, n_bins, n_species), k, j, i)*rho_ijk;
+                        gas[g] = field_up(gas_field(g, n_bins, n_species))*rho_ijk;
 
                     if (initialize)
                         equilibrate_water(
@@ -422,10 +429,11 @@ namespace Salsa
                                 rain_end);
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
-                    // The change over dt as a tendency.
+                    // The change over dt as a tendency, limited so that the field cannot become negative.
                     auto update = [&](const int n, const TF value)
                     {
-                        fields_tend(n, k, j, i) += (value - fields(n, k, j, i))/dt;
+                        const TF up = field_up(n);
+                        fields_tend(n, k, j, i) += Kokkos::max((value - up)/dt, -up/dt);
                     };
 
                     for (int b=0; b<n_bins; ++b)
@@ -440,7 +448,7 @@ namespace Salsa
                         for (int g=0; g<Gas::count; ++g)
                             update(gas_field(g, n_bins, n_species), gas[g]/rho_ijk);
 
-                    rv_tend(k, j, i) += (rv_ijk - rv_old)/dt;
+                    rv_tend(k, j, i) += Kokkos::max((rv_ijk - rv_old)/dt, -rv_up/dt);
                 });
     }
 
