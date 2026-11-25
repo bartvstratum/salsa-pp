@@ -303,9 +303,9 @@ namespace
         Array_3d<TF> rv("rv", kend, jend, iend);
         Array_3d<TF> rv_tend("rv_tend", kend, jend, iend);
         Array_3d<TF> T("T", kend, jend, iend);
-        Array_3d<TF> p("p", kend, jend, iend);
+        Array_1d<TF> p("p", kend);
         Array_3d<TF> rs("rs", kend, jend, iend);
-        Array_3d<TF> rho("rho", kend, jend, iend);
+        Array_1d<TF> rho("rho", kend);
         Array_3d<TF> rh("rh", kend, jend, iend);
 
         auto fields_h = Kokkos::create_mirror_view(fields);
@@ -319,9 +319,9 @@ namespace
         auto set_thermodynamics = [&](const int row)
         {
             T_h(0, 0, 0) = static_cast<TF>(T_in[row]);
-            p_h(0, 0, 0) = static_cast<TF>(p_in[row]);
-            rho_h(0, 0, 0) = mair*p_h(0, 0, 0)/(rg*T_h(0, 0, 0));
-            rs_h(0, 0, 0) = mwa*saturation_vapour_pressure(T_h(0, 0, 0))/(mair*p_h(0, 0, 0));
+            p_h(0) = static_cast<TF>(p_in[row]);
+            rho_h(0) = mair*p_h(0)/(rg*T_h(0, 0, 0));
+            rs_h(0, 0, 0) = mwa*saturation_vapour_pressure(T_h(0, 0, 0))/(mair*p_h(0));
 
             Kokkos::deep_copy(T, T_h);
             Kokkos::deep_copy(p, p_h);
@@ -393,8 +393,8 @@ namespace
                     fields_h,
                     time,
                     T_h(0, 0, 0),
-                    p_h(0, 0, 0),
-                    rho_h(0, 0, 0),
+                    p_h(0),
+                    rho_h(0),
                     rv_h(0, 0, 0),
                     rs_h(0, 0, 0));
         };

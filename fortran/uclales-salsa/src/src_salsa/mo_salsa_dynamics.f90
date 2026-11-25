@@ -90,7 +90,8 @@ CONTAINS
    !---------------------------------------------------------------------
 
    SUBROUTINE coagulation(kproma,kbdim,klev,   &
-                          ptstep,ptemp,ppres,  &   
+                          ptstep,ptemp,ppres,  &
+                          pdn,                 &  ! SALSA++: pdn
                           lcharge              )
 
      USE mo_salsa_types, ONLY : aero, cloud, precp, ice, allSALSA,      &
@@ -123,7 +124,8 @@ CONTAINS
       REAL, INTENT(IN) ::         &
          ptstep,                    & ! time step [s]
          ptemp(kbdim,klev),         &
-         ppres(kbdim,klev)
+         ppres(kbdim,klev),         &
+         pdn(kbdim,klev)              ! SALSA++: air density from the host [kg/m3]
       LOGICAL, INTENT(in) :: lcharge
       !-- Local variables ------------------------
 
@@ -154,7 +156,7 @@ CONTAINS
       ! Calculate new kernels every timestep if low freq updating is NOT used,
       ! or when low freq IS used AND it is the update timestep.
       IF (lscoag%mode == 1 .OR. lcgupdt ) &
-           CALL update_coagulation_kernels(kbdim,klev,ppres,ptemp,lcharge)
+           CALL update_coagulation_kernels(kbdim,klev,ppres,pdn,ptemp,lcharge)  ! SALSA++: pdn
       
       any_aero = ANY( [lscgaa,lscgca,lscgpa,lscgia] )
       any_cloud = ANY( [lscgcc,lscgca,lscgpc,lscgic] ) 
@@ -276,7 +278,8 @@ CONTAINS
    SUBROUTINE condensation(kproma,  kbdim,  klev,    krow,      &
                            pcsa,   pcocnv,  pcocsv,    &
                            pchno3,  pcnh3,  prv,prs, prsi,      &
-                           ptemp,   ppres,  ptstep,  ppbl       )
+                           ptemp,   ppres,  pdn,              &  ! SALSA++: pdn
+                           ptstep,  ppbl                      )
 
       USE mo_salsa_nucleation
       USE mo_submctl, ONLY :      &
@@ -296,6 +299,7 @@ CONTAINS
       REAL, INTENT(IN) ::         &
          ptemp(kbdim,klev),         & ! ambient temperature [K]
          ppres(kbdim,klev),         & ! ambient pressure [Pa]
+         pdn(kbdim,klev),           & ! SALSA++: air density from the host [kg/m3]
          ptstep,                    & ! timestep [s]
          prs(kbdim,klev),           & ! Water vapor saturation mixing ratio
          prsi(kbdim,klev)              ! Saturation mixing ratio    [kg/m3]
@@ -336,7 +340,7 @@ CONTAINS
       ! Condensation of water vapour
       IF (lscndh2ocl .OR. lscndh2oae .OR. lscndh2oic) &
          CALL gpparth2o(kproma, kbdim, klev,  krow,  &
-                        ptemp,  ppres, prs,   prsi,  &
+                        ptemp,  pdn,   prs,   prsi,  &  ! SALSA++: pdn instead of ppres
                         prv,   ptstep        )
 
    END SUBROUTINE condensation
@@ -689,7 +693,7 @@ CONTAINS
    !
 
    SUBROUTINE gpparth2o(kproma, kbdim,  klev,  krow,     &
-                        ptemp,  ppres,  prs,   prsi,     &
+                        ptemp,  pdn,    prs,   prsi,     &  ! SALSA++: pdn instead of ppres
                         prv,   ptstep    )
     
      USE mo_salsa_types, ONLY : aero, cloud, precp, ice, rateDiag, allSALSA
@@ -710,7 +714,7 @@ CONTAINS
 
       INTEGER, INTENT(in) :: kproma,kbdim,klev,krow
       REAL, INTENT(in) :: ptstep
-      REAL, INTENT(in) :: ptemp(kbdim,klev), ppres(kbdim,klev), prs(kbdim,klev), prsi(kbdim,klev)
+      REAL, INTENT(in) :: ptemp(kbdim,klev), pdn(kbdim,klev), prs(kbdim,klev), prsi(kbdim,klev)  ! SALSA++: pdn
 
       REAL, INTENT(inout) :: prv(kbdim,klev)
 
@@ -778,7 +782,7 @@ CONTAINS
       ! The new aerosol water content after equilibrium calculation
       zaelwc2(:,:) = SUM(aero(:,:,in1a:fn2b)%volc(iwa),DIM=3)*spec%rhowa
 
-      prv(:,:) = prv(:,:) - ( zaelwc2(:,:) - zaelwc1(:,:) )/(ppres(:,:)*mair/(rg*ptemp(:,:)))
+      prv(:,:) = prv(:,:) - ( zaelwc2(:,:) - zaelwc1(:,:) )/pdn(:,:)  ! SALSA++: was ppres*mair/(rg*ptemp)
 
       DO jj = 1, klev
          DO ii = 1, kbdim
@@ -789,7 +793,7 @@ CONTAINS
                 (ANY(aero(ii,jj,:)%numc > nlim) .AND. zrh(ii,jj) > 0.98 .AND. lscndh2oae) &
                 ) ) CYCLE
 
-            rhoair = mair*ppres(ii,jj)/(rg*ptemp(ii,jj))
+            rhoair = pdn(ii,jj)  ! SALSA++: was mair*ppres/(rg*ptemp)
 
             ! Diffusion coef
             zdfh2o = ( 5./(16.*avog*rhoair*1.e-3*(3.11e-8)**2) ) * &

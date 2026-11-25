@@ -235,7 +235,7 @@ namespace Salsa
             const Array_1d<TF>& molar_mass,
             const Array_1d<TF>& dissociation,
             const TF T,
-            const TF p,
+            const TF rho,                                   // Air density (kg m-3)
             const TF rs,
             const TF dt,
             const TF dt_condensation,                  // s
@@ -285,7 +285,7 @@ namespace Salsa
             lwc_new += volume[b][iwa];
         lwc_new = lwc_new*rhowa;
 
-        rv = rv - (lwc_new - lwc_old)/(p*mair/(rg*T));
+        rv = rv - (lwc_new - lwc_old)/rho;
 
         // Nothing to do without particles that take up water.
         bool any_aer = false;
@@ -306,9 +306,7 @@ namespace Salsa
         if (!( (any_cld || (any_rain && condense_water_cld)) || (any_aer && rh > 0.98_tf && condense_water_aer) ))
             return;
 
-        const TF rhoair = mair*p/(rg*T);
-
-        TF dfh2o = (5._tf/(16._tf*avog*rhoair*1.e-3_tf*(3.11e-8_tf*3.11e-8_tf)))
+        TF dfh2o = (5._tf/(16._tf*avog*rho*1.e-3_tf*(3.11e-8_tf*3.11e-8_tf)))
                  * Kokkos::sqrt(rg*1.e7_tf*T*mair*1.e3_tf*(mwa + mair)*1.e3_tf/(2._tf*pi*mwa*1.e3_tf));
         dfh2o = dfh2o*1.e-4_tf;
 
@@ -343,7 +341,7 @@ namespace Salsa
             const TF act = water_activity(volume[b], water, density, molar_mass, dissociation, n_dry);
 
             kelvin[b] = Kokkos::exp(4._tf*surfw0*mwa/(rg*T*rhowa*dwet));
-            cw_surf[b] = rs*rhoair/mwa;
+            cw_surf[b] = rs*rho/mwa;
             w_sat[b] = act*kelvin[b];
 
             const TF knud = 2._tf*mfph2o/dwet;
@@ -359,7 +357,7 @@ namespace Salsa
         }
 
         // Water in the vapour and in each bin (mol m-3).
-        TF cw_vapour = rv*rhoair/mwa;
+        TF cw_vapour = rv*rho/mwa;
         Bin_array cw;
         for (int b=0; b<rain_end; ++b)
             cw[b] = volume[b][iwa]*rhowa/mwa;
@@ -476,7 +474,7 @@ namespace Salsa
             cw_vapour = cw_vapour_new;
         }
 
-        rv = cw_vapour_new*mwa/rhoair;
+        rv = cw_vapour_new*mwa/rho;
 
         for (int b=0; b<rain_end; ++b)
             volume[b][iwa] = Kokkos::max(0._tf, cw_new[b]*mwa/rhowa);

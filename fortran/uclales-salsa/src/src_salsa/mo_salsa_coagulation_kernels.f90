@@ -21,80 +21,80 @@ MODULE mo_salsa_coagulation_kernels
   
   CONTAINS
   
-    SUBROUTINE update_coagulation_kernels(kbdim,klev,ppres,ptemp,lcharge) 
+    SUBROUTINE update_coagulation_kernels(kbdim,klev,ppres,pdn,ptemp,lcharge)  ! SALSA++: pdn passed down to coagc
 
       INTEGER, INTENT(in) :: kbdim,klev
-      REAL, INTENT(in) :: ppres(kbdim,klev), ptemp(kbdim,klev)
+      REAL, INTENT(in) :: ppres(kbdim,klev), pdn(kbdim,klev), ptemp(kbdim,klev)
       LOGICAL, INTENT(in) :: lcharge
 
       ! Aero-aero
       IF (lscgaa) THEN
          zccaa(:,:,:,:) = 0.
-         CALL buildKernelSelf( kbdim,klev,nbins,aero,ptemp,ppres,zccaa,lcharge )
+         CALL buildKernelSelf( kbdim,klev,nbins,aero,ptemp,ppres,pdn,zccaa,lcharge )
       END IF
            
       ! Cloud-cloud 
       IF (lscgcc) THEN
          zcccc(:,:,:,:) = 0.
-         CALL buildKernelSelf( kbdim,klev,ncld,cloud,ptemp,ppres,zcccc,lcharge )
+         CALL buildKernelSelf( kbdim,klev,ncld,cloud,ptemp,ppres,pdn,zcccc,lcharge )
       END IF
            
       ! Precp-precp
       IF (lscgpp) THEN
          zccpp(:,:,:,:) = 0.
-         CALL buildKernelSelf( kbdim,klev,nprc,precp,ptemp,ppres,zccpp,lcharge )
+         CALL buildKernelSelf( kbdim,klev,nprc,precp,ptemp,ppres,pdn,zccpp,lcharge )
       END IF
       
       ! ice-ice
       IF (lscgii) THEN
          zccii(:,:,:,:) = 0.
-         CALL buildKernelSelf( kbdim,klev,nice,ice,ptemp,ppres,zccii,lcharge )
+         CALL buildKernelSelf( kbdim,klev,nice,ice,ptemp,ppres,pdn,zccii,lcharge )
       END IF
       
       ! Aero-cloud
       IF (lscgca) THEN
          zccca(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,nbins,aero,ncld,cloud,ptemp,ppres,zccca,lcharge )
+         CALL buildKernel( kbdim,klev,nbins,aero,ncld,cloud,ptemp,ppres,pdn,zccca,lcharge )
       END IF
          
       ! Aero-precp
       IF (lscgpa) THEN
          zccpa(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,nbins,aero,nprc,precp,ptemp,ppres,zccpa,lcharge )
+         CALL buildKernel( kbdim,klev,nbins,aero,nprc,precp,ptemp,ppres,pdn,zccpa,lcharge )
       END IF
          
       ! Aero-ice
       IF (lscgia) THEN
          zccia(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,nbins,aero,nice,ice,ptemp,ppres,zccia,lcharge )
+         CALL buildKernel( kbdim,klev,nbins,aero,nice,ice,ptemp,ppres,pdn,zccia,lcharge )
       END IF
          
       ! Cloud-precp
       IF (lscgpc) THEN
          zccpc(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,ncld,cloud,nprc,precp,ptemp,ppres,zccpc,lcharge )
+         CALL buildKernel( kbdim,klev,ncld,cloud,nprc,precp,ptemp,ppres,pdn,zccpc,lcharge )
       END IF
          
       ! Cloud-ice
       IF (lscgic) THEN
          zccic(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,ncld,cloud,nice,ice,ptemp,ppres,zccic,lcharge )
+         CALL buildKernel( kbdim,klev,ncld,cloud,nice,ice,ptemp,ppres,pdn,zccic,lcharge )
       END IF
          
       ! Precp-ice
       IF (lscgip) THEN
          zccip(:,:,:,:) = 0.
-         CALL buildKernel( kbdim,klev,nprc,precp,nice,ice,ptemp,ppres,zccip,lcharge )
+         CALL buildKernel( kbdim,klev,nprc,precp,nice,ice,ptemp,ppres,pdn,zccip,lcharge )
       END IF
          
     END SUBROUTINE update_coagulation_kernels
 
     ! ----------------------
     
-    SUBROUTINE buildKernelSelf( kbdim,klev,nb1,part1,ptemp,ppres,zcc,lcharge )
+    SUBROUTINE buildKernelSelf( kbdim,klev,nb1,part1,ptemp,ppres,pdn,zcc,lcharge )
       INTEGER, INTENT(in) :: kbdim,klev,nb1
       TYPE(Section), INTENT(inout) :: part1(kbdim,klev,nb1)  ! inout because updates rho, D
-      REAL, INTENT(in) :: ptemp(kbdim,klev),ppres(kbdim,klev)
+      REAL, INTENT(in) :: ptemp(kbdim,klev),ppres(kbdim,klev),pdn(kbdim,klev)  ! SALSA++: pdn
       LOGICAL, INTENT(in) :: lcharge
       REAL, INTENT(out) :: zcc(kbdim,klev,nb1,nb1)
 
@@ -119,7 +119,8 @@ MODULE mo_salsa_coagulation_kernels
                     IF (pp1(nn)%numc < pp1(nn)%nlim) CYCLE
                     
                     zcc(ii,jj,mm,nn) = coagc( pp1(mm),pp1(nn),            &
-                                              ptemp(ii,jj),ppres(ii,jj),  & 
+                                              ptemp(ii,jj),ppres(ii,jj),  &
+                                              pdn(ii,jj),                 &  ! SALSA++: pdn
                                               lcharge,2                   )
                     zcc(ii,jj,nn,mm) = zcc(ii,jj,mm,nn)
                  END DO
@@ -134,12 +135,12 @@ MODULE mo_salsa_coagulation_kernels
 
     ! --------------------------
 
-    SUBROUTINE buildKernel( kbdim,klev,nb1,part1,nb2,part2,ptemp,ppres,zcc,lcharge )
+    SUBROUTINE buildKernel( kbdim,klev,nb1,part1,nb2,part2,ptemp,ppres,pdn,zcc,lcharge )
       ! Always the "smaller" particle indices first
       INTEGER, INTENT(in) :: kbdim,klev
       INTEGER, INTENT(in) :: nb1, nb2
       TYPE(Section), INTENT(inout) :: part1(kbdim,klev,nb1), part2(kbdim,klev,nb2) ! inout because updates rho, D 
-      REAL, INTENT(in)    :: ptemp(kbdim,klev),ppres(kbdim,klev)
+      REAL, INTENT(in)    :: ptemp(kbdim,klev),ppres(kbdim,klev),pdn(kbdim,klev)  ! SALSA++: pdn
       LOGICAL, INTENT(in) :: lcharge
       REAL, INTENT(out)   :: zcc(kbdim,klev,nb1,nb2)
      
@@ -168,6 +169,7 @@ MODULE mo_salsa_coagulation_kernels
                     IF (pp2(nn)%numc < pp2(nn)%nlim) CYCLE
                     zcc(ii,jj,mm,nn) = coagc( pp1(mm),pp2(nn),            &
                                               ptemp(ii,jj),ppres(ii,jj),  &
+                                              pdn(ii,jj),                 &  ! SALSA++: pdn
                                               lcharge,2                   )
                  END DO
               END DO
@@ -182,7 +184,7 @@ MODULE mo_salsa_coagulation_kernels
 
     ! ==========================================
 
-    REAL FUNCTION coagc(pp1,pp2,temp,pres,lcharge,kernel)
+    REAL FUNCTION coagc(pp1,pp2,temp,pres,dn,lcharge,kernel)  ! SALSA++: dn
 
       USE mo_submctl, ONLY : pi, pi6, boltz, pstand, grav, rd, eddy_dis
       USE mo_particle_external_properties, ONLY : terminal_vel
@@ -195,7 +197,8 @@ MODULE mo_salsa_coagulation_kernels
 
       REAL, INTENT(IN) :: &
            temp,   &   ! ambient temperature [K]
-           pres        ! ambient pressure [fxm]
+           pres,   &   ! ambient pressure [fxm]
+           dn          ! SALSA++: air density from the host [kg m-3]
       
       LOGICAL, INTENT(in) :: lcharge  !! Whether particle charging effects are used.
       INTEGER, INTENT(in) :: kernel ! select the type of kernel: 1 - aerosol-aerosol coagulation (the original version)
@@ -340,7 +343,7 @@ MODULE mo_salsa_coagulation_kernels
                                          pp2%numc                                      )
          
          
-         zrhoa = pres/(rd*temp)       ! Density of air
+         zrhoa = dn                   ! Density of air; SALSA++: was pres/(rd*temp)
          zrhop = mpart/(pi6*diam**3)  ! Density of particles; For ice this is the effective density using the non-spherical diameter
          vkin  = visc/zrhoa           ! Kinematic viscosity of air [m2 s-1]
 

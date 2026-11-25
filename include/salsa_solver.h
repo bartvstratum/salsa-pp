@@ -61,9 +61,9 @@ namespace Salsa
                     const Array_4d<const TF>& fields,               // (n, k, j, i), n in the order of the layout
                     const Array_3d<const TF>& rv,                   // Water vapour mixing ratio (kg kg-1)
                     const Array_3d<const TF>& T,                    // K
-                    const Array_3d<const TF>& p,                    // Pa
+                    const Array_1d<const TF>& p,                    // (k), Pa
                     const Array_3d<const TF>& rs,                   // Saturation mixing ratio over water (kg kg-1)
-                    const Array_3d<const TF>& rho,                  // kg m-3
+                    const Array_1d<const TF>& rho,                  // (k), kg m-3
                     const TF dt,
                     const bool initialize,                          // Equilibrate the aerosol water first; Fortran: run_SALSA initialize
                     const bool do_coagulation,

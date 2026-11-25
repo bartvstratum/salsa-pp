@@ -185,9 +185,9 @@ namespace
         Array_3d<TF> rv("rv", kcells, jcells, icells);
         Array_3d<TF> rv_tend("rv_tend", kcells, jcells, icells);
         Array_3d<TF> T("T", kcells, jcells, icells);
-        Array_3d<TF> p("p", kcells, jcells, icells);
+        Array_1d<TF> p("p", kcells);
         Array_3d<TF> rs("rs", kcells, jcells, icells);
-        Array_3d<TF> rho("rho", kcells, jcells, icells);
+        Array_1d<TF> rho("rho", kcells);
 
         auto fields_h = Kokkos::create_mirror_view(fields);
         auto rv_h = Kokkos::create_mirror_view(rv);
@@ -218,14 +218,16 @@ namespace
         {
             const TF z = (k - kstart + 0.5_tf)/ktot*domain_height;
             const TF rh_z = (z < cloud_base) ? rh_below : (z < cloud_top) ? rh_cloud : rh_above;
+            const TF T_z = T_surface - lapse_rate*z;
+
+            p_h(k) = p_surface*std::exp(-z/scale_height);
+            rho_h(k) = mair*p_h(k)/(rg*T_z);
 
             for (int j=jstart; j<jend; ++j)
                 for (int i=istart; i<iend; ++i)
                 {
-                    T_h(k, j, i) = T_surface - lapse_rate*z;
-                    p_h(k, j, i) = p_surface*std::exp(-z/scale_height);
-                    rho_h(k, j, i) = mair*p_h(k, j, i)/(rg*T_h(k, j, i));
-                    rs_h(k, j, i) = mwa*saturation_vapour_pressure(T_h(k, j, i))/(mair*p_h(k, j, i));
+                    T_h(k, j, i) = T_z;
+                    rs_h(k, j, i) = mwa*saturation_vapour_pressure(T_h(k, j, i))/(mair*p_h(k));
 
                     const TF rh = rh_z + rh_perturbation*static_cast<TF>(random_uniform(random_engine));
                     rv_h(k, j, i) = rh*rs_h(k, j, i);

@@ -43,7 +43,8 @@ MODULE mo_salsa
  CONTAINS
 
    SUBROUTINE salsa(kproma,   kbdim,    klev,    krow,             &
-                    ppres,    prv, prs, prsi,    ptemp,  ptstep,   &
+                    ppres,    pdn,                             &  ! SALSA++: pdn
+                    prv, prs, prsi,    ptemp,  ptstep,             &
                     pc_h2so4, pc_ocnv,  pc_ocsv, pc_hno3,          & 
                     pc_nh3,   pactd,    pw,      level, lcharge    )
      
@@ -58,6 +59,7 @@ MODULE mo_salsa
      
      REAL, INTENT(in) ::            &
           ppres(kbdim,klev),            & ! atmospheric pressure at each grid point [Pa]
+          pdn(kbdim,klev),              & ! SALSA++: air density from the host [kg/m3]
           ptemp(kbdim,klev),            & ! temperature at each grid point [K]
           ptstep                          ! time step [s]
      
@@ -91,7 +93,8 @@ MODULE mo_salsa
      ! Coagulation
      IF (lscoag%state) &
           CALL coagulation( kproma, kbdim,  klev,    &
-                            ptstep, ptemp,  ppres,   &                        
+                            ptstep, ptemp,  ppres,   &
+                            pdn,                     &  ! SALSA++: pdn
                             lcharge                  )
      
      IF (lscheckarrays) CALL check_arrays(kbdim,klev,"COAG")
@@ -104,7 +107,8 @@ MODULE mo_salsa
           CALL condensation(kproma,   kbdim,    klev,     krow,      &
                             pc_h2so4, pc_ocnv,  pc_ocsv,  pc_hno3,   &
                             pc_nh3,   prv,      prs,      prsi,      &
-                            ptemp,    ppres,    ptstep,   zpbl       )
+                            ptemp,    ppres,    pdn,                 &  ! SALSA++: pdn
+                            ptstep,   zpbl                           )
 
      IF (lscheckarrays) CALL check_arrays(kbdim,klev,"CONDENSATION")
 

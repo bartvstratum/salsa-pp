@@ -130,9 +130,9 @@ namespace Salsa
             const Array_4d<const TF>& fields,
             const Array_3d<const TF>& rv,
             const Array_3d<const TF>& T,
-            const Array_3d<const TF>& p,
+            const Array_1d<const TF>& p,
             const Array_3d<const TF>& rs,
-            const Array_3d<const TF>& rho,
+            const Array_1d<const TF>& rho,
             const TF dt,
             const bool initialize,
             const bool do_coagulation,
@@ -212,9 +212,9 @@ namespace Salsa
 
                     // Fortran: mo_salsa_driver.f90: run_SALSA (part)
                     const TF T_ijk = T(k, j, i);
-                    const TF p_ijk = p(k, j, i);
+                    const TF p_ijk = p(k);
                     const TF rs_ijk = rs(k, j, i);
-                    const TF rho_ijk = rho(k, j, i);
+                    const TF rho_ijk = rho(k);
                     TF rv_ijk = free_rh ? rv(k, j, i) : Kokkos::min(rv(k, j, i), rs_ijk*rh_limit);
 
                     const TF rv_old = rv_ijk;
@@ -283,6 +283,7 @@ namespace Salsa
                                 number_limit,
                                 T_ijk,
                                 p_ijk,
+                                rho_ijk,
                                 dt,
                                 do_autoconversion,
                                 coagulate_aer,
@@ -348,7 +349,7 @@ namespace Salsa
                                     molar_mass,
                                     dissociation,
                                     T_ijk,
-                                    p_ijk,
+                                    rho_ijk,
                                     rs_ijk,
                                     dt,
                                     dt_condensation,

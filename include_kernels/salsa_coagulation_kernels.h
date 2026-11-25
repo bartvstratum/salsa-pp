@@ -76,7 +76,8 @@ namespace Salsa
             const TF d_wet_2,
             const TF d_mid_2,
             const TF T,
-            const TF p)
+            const TF p,
+            const TF rho)                                   // Air density (kg m-3)
     {
         TF diam[2] = {d_wet_1, d_wet_2};
         TF mass[2] = {rhowa*pi6*(d_wet_1*d_wet_1*d_wet_1), rhowa*pi6*(d_wet_2*d_wet_2*d_wet_2)};
@@ -123,8 +124,7 @@ namespace Salsa
         const int lrg = (diam[0] >= diam[1]) ? 0 : 1;
         const int sml = 1 - lrg;
 
-        const TF rhoa = p/(rd*T);
-        const TF vkin = visc/rhoa;
+        const TF vkin = visc/rho;
 
         TF termv[2];
         TF reyn[2];
@@ -132,7 +132,7 @@ namespace Salsa
 
         for (int n=0; n<2; ++n)
         {
-            termv[n] = terminal_velocity(diam[n], rhowa, rhoa, visc, beta[n]);
+            termv[n] = terminal_velocity(diam[n], rhowa, rho, visc, beta[n]);
             reyn[n] = diam[n]*termv[n]/vkin;
             schm[n] = vkin/dfpart[n];
         }
@@ -181,7 +181,8 @@ namespace Salsa
             const bool* has_particles,
             const Array_1d<TF>& diameter_mid,
             const TF T,
-            const TF p)
+            const TF p,
+            const TF rho)
     {
         const int lo = Kokkos::min(b1, b2);
         const int hi = Kokkos::max(b1, b2);
@@ -189,7 +190,7 @@ namespace Salsa
         if (!has_particles[lo] || !has_particles[hi])
             return 0._tf;
 
-        return coagulation_coefficient(d_wet[lo], diameter_mid(lo), d_wet[hi], diameter_mid(hi), T, p);
+        return coagulation_coefficient(d_wet[lo], diameter_mid(lo), d_wet[hi], diameter_mid(hi), T, p, rho);
     }
 
 
@@ -873,6 +874,7 @@ namespace Salsa
             const Array_1d<TF>& number_limit,
             const TF T,
             const TF p,
+            const TF rho,
             const TF dt,
             const bool autoconversion,                      // Mode 1, part of cloud coagulation
             const bool coagulate_aer,
@@ -906,7 +908,7 @@ namespace Salsa
         // Within a category.
         auto kernel_self = [&](const int b1, const int b2)
         {
-            return coagulation_kernel_self(b1, b2, d_wet, has_particles, diameter_mid, T, p);
+            return coagulation_kernel_self(b1, b2, d_wet, has_particles, diameter_mid, T, p, rho);
         };
 
         // Fortran: buildKernel (one element): bin b1 of the smaller category and bin b2 of the larger.
@@ -915,7 +917,7 @@ namespace Salsa
             if (!has_particles[b1] || !has_particles[b2])
                 return 0._tf;
 
-            return coagulation_coefficient(d_wet[b1], diameter_mid(b1), d_wet[b2], diameter_mid(b2), T, p);
+            return coagulation_coefficient(d_wet[b1], diameter_mid(b1), d_wet[b2], diameter_mid(b2), T, p, rho);
         };
 
         if (coagulate_rain || rain_collects_aer || rain_collects_cld)

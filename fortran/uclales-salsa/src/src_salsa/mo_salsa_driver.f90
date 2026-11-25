@@ -133,6 +133,7 @@ CONTAINS
                   
       REAL :: in_p(kbdim,klev), in_t(kbdim,klev), in_rv(kbdim,klev), in_rs(kbdim,klev),&
               in_w(kbdim,klev), in_rsi(kbdim,klev)
+      REAL :: in_dn(kbdim,klev)  ! SALSA++: air density from the host
       REAL :: rv_old(kbdim,klev)
 
       ! -- Local gas compound tracers [# m-3] WHY ARE THESE GLOBAL?
@@ -172,7 +173,8 @@ CONTAINS
                                      
       in_p(:,:) = 0.; in_t(:,:) = 0.; in_rs(:,:) = 0.; in_rsi(:,:) = 0.; in_w(:,:) = 0.
       in_rv(:,:) = 0.; rv_old(:,:) = 0.
-      
+      in_dn(:,:) = 0.  ! SALSA++
+
       ! Set the SALSA runtime config 
       CALL set_salsa_runtime(time,tstep,istp)
       
@@ -183,6 +185,7 @@ CONTAINS
 
                ! Set inputs
                in_p(1,1) = ppress%d(kk,ii,jj)
+               in_dn(1,1) = pdn%d(kk,ii,jj)  ! SALSA++
                in_t(1,1) = ptk%d(kk,ii,jj)
                in_rs(1,1) = prs%d(kk,ii,jj)
                IF (level == 5) &
@@ -302,7 +305,8 @@ CONTAINS
                !                Run SALSA               !
                ! ***************************************!
                CALL salsa(kproma, kbdim,  klev,   krow,     &
-                          in_p,   in_rv,  in_rs,  in_rsi,   &
+                          in_p,   in_dn,                    &  ! SALSA++: in_dn
+                          in_rv,  in_rs,  in_rsi,           &
                           in_t,   tstep,  zgso4,  zgocnv,   &
                           zgocsv, zghno3, zgnh3,  actd,     &
                           in_w,   level,  lcharge            )
