@@ -127,7 +127,6 @@ namespace Salsa
     void Solver::exec(
             const Array_4d<TF>& fields_tend,
             const Array_3d<TF>& rv_tend,
-            const Array_4d<TF>& diameter_wet,
             const Array_4d<const TF>& fields,
             const Array_3d<const TF>& rv,
             const Array_3d<const TF>& T,
@@ -226,7 +225,6 @@ namespace Salsa
                             volume[b][s] = fields(mass_field(b, s, n_species), k, j, i)*rho_ijk/density(s);
 
                         number[b] = fields(number_field(b, n_species), k, j, i)*rho_ijk;
-                        d_wet[b] = diameter_wet(b, k, j, i);
 
                         if (number[b] > number_limit(b))
                         {
@@ -242,6 +240,9 @@ namespace Salsa
                             core[b] = pi6*(dm*dm*dm);
                         }
                     }
+
+                    // Wet diameter from the current state, not kept between calls (BUGS.md 10).
+                    update_wet_diameter(number, volume, d_wet, diameter_mid, diameter_limit, number_limit, n_species, n_bins);
 
                     for (int g=0; g<Gas::count; ++g)
                         gas[g] = fields(gas_field(g, n_bins, n_species), k, j, i)*rho_ijk;
@@ -432,7 +433,6 @@ namespace Salsa
                             update(mass_field(b, s, n_species), volume[b][s]*density(s)/rho_ijk);
 
                         update(number_field(b, n_species), number[b]/rho_ijk);
-                        diameter_wet(b, k, j, i) = d_wet[b];
                     }
 
                     if (do_condense_gases)

@@ -267,7 +267,8 @@ CONTAINS
                   allSALSA(1,1,nb)%numc = npart(icat)%d(nbloc)*pdn%d(kk,ii,jj)
 
                   ! Update particle size and densities
-                  !CALL allSALSA(1,1,nb)%updateDiameter(.TRUE.,type="all")
+                  ! SALSA++: was commented out, so dwet was left over from the previous grid point or call
+                  CALL allSALSA(1,1,nb)%updateDiameter(.TRUE.,type="all")
                   CALL allSALSA(1,1,nb)%updateRhomean()
 
                   IF (allSALSA(1,1,nb)%numc > allSALSA(1,1,nb)%nlim) THEN

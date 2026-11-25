@@ -58,7 +58,6 @@ namespace Salsa
             void exec(
                     const Array_4d<TF>& fields_tend,                // (n, k, j, i), per s
                     const Array_3d<TF>& rv_tend,                    // kg kg-1 s-1
-                    const Array_4d<TF>& diameter_wet,               // (bin, k, j, i), kept between calls as in UCLALES-SALSA
                     const Array_4d<const TF>& fields,               // (n, k, j, i), n in the order of the layout
                     const Array_3d<const TF>& rv,                   // Water vapour mixing ratio (kg kg-1)
                     const Array_3d<const TF>& T,                    // K

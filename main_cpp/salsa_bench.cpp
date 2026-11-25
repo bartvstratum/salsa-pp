@@ -182,7 +182,6 @@ namespace
 
         Array_4d<TF> fields("fields", layout.n_fields, kcells, jcells, icells);
         Array_4d<TF> fields_tend("fields_tend", layout.n_fields, kcells, jcells, icells);
-        Array_4d<TF> diameter_wet("diameter_wet", layout.n_bins, kcells, jcells, icells);
         Array_3d<TF> rv("rv", kcells, jcells, icells);
         Array_3d<TF> rv_tend("rv_tend", kcells, jcells, icells);
         Array_3d<TF> T("T", kcells, jcells, icells);
@@ -191,7 +190,6 @@ namespace
         Array_3d<TF> rho("rho", kcells, jcells, icells);
 
         auto fields_h = Kokkos::create_mirror_view(fields);
-        auto diameter_wet_h = Kokkos::create_mirror_view(diameter_wet);
         auto rv_h = Kokkos::create_mirror_view(rv);
         auto T_h = Kokkos::create_mirror_view(T);
         auto p_h = Kokkos::create_mirror_view(p);
@@ -234,15 +232,10 @@ namespace
 
                     for (int n=0; n<layout.n_fields; ++n)
                         fields_h(n, k, j, i) = aerosol[n];
-
-                    // The bin centre diameter, as UCLALES-SALSA initialises the wet diameter.
-                    for (int b=0; b<layout.n_bins; ++b)
-                        diameter_wet_h(b, k, j, i) = layout.diameter_mid[b];
                 }
         }
 
         Kokkos::deep_copy(fields, fields_h);
-        Kokkos::deep_copy(diameter_wet, diameter_wet_h);
         Kokkos::deep_copy(rv, rv_h);
         Kokkos::deep_copy(T, T_h);
         Kokkos::deep_copy(p, p_h);
@@ -263,7 +256,6 @@ namespace
             solver.exec(
                     fields_tend,
                     rv_tend,
-                    diameter_wet,
                     fields,
                     rv,
                     T,
@@ -343,11 +335,9 @@ namespace
 
         // Start state of every timed call.
         Array_4d<TF> fields_start("fields_start", layout.n_fields, kcells, jcells, icells);
-        Array_4d<TF> diameter_wet_start("diameter_wet_start", layout.n_bins, kcells, jcells, icells);
         Array_3d<TF> rv_start("rv_start", kcells, jcells, icells);
 
         Kokkos::deep_copy(fields_start, fields);
-        Kokkos::deep_copy(diameter_wet_start, diameter_wet);
         Kokkos::deep_copy(rv_start, rv);
 
         const std::vector<std::string> process_names = {"none", "condensation", "activation", "distr_update", "all"};
@@ -370,7 +360,6 @@ namespace
             for (int c=0; c<n_calls+1; ++c)
             {
                 Kokkos::deep_copy(fields, fields_start);
-                Kokkos::deep_copy(diameter_wet, diameter_wet_start);
                 Kokkos::deep_copy(rv, rv_start);
                 Kokkos::deep_copy(fields_tend, 0._tf);
                 Kokkos::deep_copy(rv_tend, 0._tf);
