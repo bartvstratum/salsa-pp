@@ -56,7 +56,8 @@ namespace Salsa
             // Runs on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), and adds the change of the
             // fields and of rv over dt as tendencies, as run_SALSA in UCLALES-SALSA. The host applies them.
             // Starts from fields + dt*fields_tend and rv + dt*rv_tend; the change is limited so that no field
-            // becomes negative.
+            // becomes negative. That start state is first cleaned as SALSA_diagnostics (negatives to zero, bins
+            // with number but no or too little volume removed, their water to rv).
             void exec(
                     const Array_4d<TF>& fields_tend,                // (n, k, j, i), per s; in: other processes
                     const Array_3d<TF>& rv_tend,                    // kg kg-1 s-1; in: other processes

@@ -108,6 +108,121 @@ namespace Salsa
     }
 
 
+    // Number and mass of bin b to zero (accessors return references to per-kg values).
+    template<typename Number, typename Mass>
+    KOKKOS_INLINE_FUNCTION
+    void empty_bin(const Number& number, const Mass& mass, const int b, const int n_species)
+    {
+        number(b) = 0._tf;
+        for (int s=0; s<n_species; ++s)
+            mass(b, s) = 0._tf;
+    }
+
+
+    // Fortran: constrain_SALSA.f90: SALSA_diagnostics (part)
+    // Empties bins with number but no mass; rain checks water only. Returns the water removed (kg kg-1).
+    template<typename Number, typename Mass>
+    KOKKOS_INLINE_FUNCTION
+    TF empty_massless_bins(
+            const Number& number,
+            const Mass& mass,
+            const int n_species,
+            const int aer_1a_start,
+            const int aer_2b_end,
+            const int cld_a_start,
+            const int cld_b_end,
+            const int rain_start,
+            const int rain_end)
+    {
+        const int iwa = n_species - 1;
+        TF water_removed = 0._tf;
+
+        auto mass_total = [&](const int b)
+        {
+            TF m = 0._tf;
+            for (int s=0; s<n_species; ++s)
+                m = m + mass(b, s);
+            return m;
+        };
+
+        auto empty = [&](const int b)
+        {
+            water_removed += mass(b, iwa);
+            empty_bin(number, mass, b, n_species);
+        };
+
+        for (int b=aer_1a_start; b<aer_2b_end; ++b)
+            if (number(b) > 0._tf && mass_total(b) <= 0._tf)
+                empty(b);
+
+        for (int b=cld_a_start; b<cld_b_end; ++b)
+            if (number(b) > 0._tf && mass_total(b) <= 0._tf)
+                empty(b);
+
+        for (int b=rain_start; b<rain_end; ++b)
+            if (number(b) > 0._tf && mass(b, iwa) <= 0._tf)
+                empty(b);
+
+        return water_removed;
+    }
+
+
+    // Fortran: constrain_SALSA.f90: SALSA_diagnostics (part)
+    // Removes aerosol below 0.1 nm dry diameter; SO4, OC, NO and NH to the gas phase (molecules per kg).
+    // Returns the water removed (kg kg-1).
+    template<typename Number, typename Mass, typename Gas_accessor>
+    KOKKOS_INLINE_FUNCTION
+    TF remove_tiny_aerosol(
+            const Number& number,
+            const Mass& mass,
+            const Gas_accessor& gas,
+            const Array_1d<TF>& density,
+            const bool condense_gases,
+            const int iso4,
+            const int ioc,
+            const int ino,
+            const int inh,
+            const int n_species,
+            const int aer_1a_start,
+            const int aer_2b_end)
+    {
+        const int n_dry = n_species - 1;
+        const int iwa = n_species - 1;
+        const TF volume_min = pi6*Kokkos::pow(1.e-10_tf, 3._tf);
+        TF water_removed = 0._tf;
+
+        for (int b=aer_1a_start; b<aer_2b_end; ++b)
+        {
+            if (number(b) > nlim)
+            {
+                TF volume = 0._tf;
+                for (int s=0; s<n_dry; ++s)
+                    volume = volume + mass(b, s)/density(s);
+                volume = volume/number(b);
+
+                if (volume < volume_min)
+                {
+                    auto to_gas = [&](const int s, const int g, const TF molar_mass_gas)
+                    {
+                        if (s >= 0 && condense_gases)
+                            gas(g) = gas(g) + mass(b, s)/molar_mass_gas*avog;
+                    };
+
+                    to_gas(iso4, Gas::h2so4, msu);
+                    to_gas(ioc, Gas::ocsv, moc);
+                    to_gas(ino, Gas::hno3, mno);
+                    to_gas(inh, Gas::nh3, mnh);
+
+                    water_removed += mass(b, iwa);
+                    empty_bin(number, mass, b, n_species);
+                }
+            }
+        }
+
+        return water_removed;
+    }
+
+
     // Fortran: constrain_SALSA.f90: SALSA_diagnostics (without clipping, ice and charge)
     // On the fields of one grid point (per kg): bins with number but no mass are emptied; in subsaturated air,
     // cloud and rain bins with small drops go to an aerosol bin; aerosol below 0.1 nm dry diameter is removed,
@@ -157,11 +272,9 @@ namespace Salsa
             return fields(mass_field(b, s, n_species), k, j, i);
         };
 
-        auto empty = [&](const int b)
+        auto gas = [&](const int g) -> TF&
         {
-            number(b) = 0._tf;
-            for (int s=0; s<n_species; ++s)
-                mass(b, s) = 0._tf;
+            return fields(gas_field(g, n_bins, n_species), k, j, i);
         };
 
         // Moves number and mass of bin b to aerosol bin b_aer.
@@ -196,26 +309,8 @@ namespace Salsa
             d_wet = Kokkos::pow(volume/pi6, 1._tf/3._tf);
         };
 
-        auto mass_total = [&](const int b)
-        {
-            TF m = 0._tf;
-            for (int s=0; s<n_species; ++s)
-                m = m + mass(b, s);
-            return m;
-        };
-
-        // Bins with number but no mass; rain checks water only.
-        for (int b=aer_1a_start; b<aer_2b_end; ++b)
-            if (number(b) > 0._tf && mass_total(b) <= 0._tf)
-                empty(b);
-
-        for (int b=cld_a_start; b<cld_b_end; ++b)
-            if (number(b) > 0._tf && mass_total(b) <= 0._tf)
-                empty(b);
-
-        for (int b=rain_start; b<rain_end; ++b)
-            if (number(b) > 0._tf && mass(b, iwa) <= 0._tf)
-                empty(b);
+        // Bins with number but no mass (their water is lost, as in the Fortran).
+        empty_massless_bins(number, mass, n_species, aer_1a_start, aer_2b_end, cld_a_start, cld_b_end, rain_start, rain_end);
 
         // Evaporated cloud droplets to the parallel aerosol bin.
         for (int b=cld_a_start; b<cld_b_end; ++b)
@@ -252,37 +347,8 @@ namespace Salsa
             }
         }
 
-        // Aerosol below 0.1 nm dry diameter; SO4, OC, NO and NH to the gas phase (molecules per kg).
-        const TF volume_min = pi6*Kokkos::pow(1.e-10_tf, 3._tf);
-
-        for (int b=aer_1a_start; b<aer_2b_end; ++b)
-        {
-            if (number(b) > nlim)
-            {
-                TF volume = 0._tf;
-                for (int s=0; s<n_dry; ++s)
-                    volume = volume + mass(b, s)/density(s);
-                volume = volume/number(b);
-
-                if (volume < volume_min)
-                {
-                    auto to_gas = [&](const int s, const int gas, const TF molar_mass_gas)
-                    {
-                        if (s >= 0 && condense_gases)
-                        {
-                            TF& g = fields(gas_field(gas, n_bins, n_species), k, j, i);
-                            g = g + mass(b, s)/molar_mass_gas*avog;
-                        }
-                    };
-
-                    to_gas(iso4, Gas::h2so4, msu);
-                    to_gas(ioc, Gas::ocsv, moc);
-                    to_gas(ino, Gas::hno3, mno);
-                    to_gas(inh, Gas::nh3, mnh);
-
-                    empty(b);
-                }
-            }
-        }
+        // Aerosol below 0.1 nm dry diameter (water lost, as in the Fortran).
+        remove_tiny_aerosol(
+                number, mass, gas, density, condense_gases, iso4, ioc, ino, inh, n_species, aer_1a_start, aer_2b_end);
     }
 }

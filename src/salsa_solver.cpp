@@ -226,12 +226,42 @@ namespace Salsa
 
                     const TF rv_old = rv_ijk;
 
+                    // Input cleanup per kg, as SALSA_diagnostics (BUGS.md 27): negative number and mass to zero,
+                    // bins with number but no or too little volume removed, their water to rv.
                     for (int b=0; b<n_bins; ++b)
                     {
                         for (int s=0; s<n_species; ++s)
-                            volume[b][s] = field_up(mass_field(b, s, n_species))*rho_ijk/density(s);
+                            volume[b][s] = Kokkos::max(field_up(mass_field(b, s, n_species)), 0._tf);
 
-                        number[b] = field_up(number_field(b, n_species))*rho_ijk;
+                        number[b] = Kokkos::max(field_up(number_field(b, n_species)), 0._tf);
+                    }
+
+                    for (int g=0; g<Gas::count; ++g)
+                        gas[g] = field_up(gas_field(g, n_bins, n_species));
+
+                    {
+                        auto number_kg = [&](const int b) -> TF& { return number[b]; };
+                        auto mass_kg = [&](const int b, const int s) -> TF& { return volume[b][s]; };
+                        auto gas_kg = [&](const int g) -> TF& { return gas[g]; };
+
+                        rv_ijk += empty_massless_bins(
+                                number_kg, mass_kg, n_species, aer_1a_start, aer_2b_end, cld_a_start, cld_b_end,
+                                rain_start, rain_end);
+
+                        rv_ijk += remove_tiny_aerosol(
+                                number_kg, mass_kg, gas_kg, density, do_condense_gases, iso4, ioc, ino, inh, n_species,
+                                aer_1a_start, aer_2b_end);
+                    }
+
+                    for (int g=0; g<Gas::count; ++g)
+                        gas[g] = gas[g]*rho_ijk;
+
+                    for (int b=0; b<n_bins; ++b)
+                    {
+                        for (int s=0; s<n_species; ++s)
+                            volume[b][s] = volume[b][s]*rho_ijk/density(s);
+
+                        number[b] = number[b]*rho_ijk;
 
                         if (number[b] > number_limit(b))
                         {
@@ -250,9 +280,6 @@ namespace Salsa
 
                     // Wet diameter from the current state, not kept between calls (BUGS.md 10).
                     update_wet_diameter(number, volume, d_wet, diameter_mid, diameter_limit, number_limit, n_species, n_bins);
-
-                    for (int g=0; g<Gas::count; ++g)
-                        gas[g] = field_up(gas_field(g, n_bins, n_species))*rho_ijk;
 
                     if (initialize)
                         equilibrate_water(
