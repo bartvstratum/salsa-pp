@@ -34,6 +34,7 @@ CONTAINS
       !-- Local variables ----------------------
       INTEGER :: ii, jj, kk, mm
       REAL    :: zvpart, znfrac, zvfrac, zVrat, zVilo, zVihi, zVexc, zvdec
+      REAL    :: zvmove  ! SALSA++: fraction of the bin volume moved to the larger bin
       LOGICAL :: within_bins
       INTEGER :: count
       INTEGER :: zndry,znwet,znnsp
@@ -116,13 +117,12 @@ CONTAINS
                      !-- update bin
                      mm = kk+1
                      !-- volume
-                     aero(ii,jj,mm)%volc(1:znwet) = aero(ii,jj,mm)%volc(1:znwet) &
-                                               + znfrac * aero(ii,jj,kk)%numc * zVexc * aero(ii,jj,kk)%volc(1:znwet) / &
-                                               sum(aero(ii,jj,kk)%volc(1:zndry))
+                     ! SALSA++: fraction first, then times the volume; the four-factor product underflows in float.
+                     zvmove = znfrac * aero(ii,jj,kk)%numc * zVexc / sum(aero(ii,jj,kk)%volc(1:zndry))
 
-                     aero(ii,jj,kk)%volc(1:znwet) = aero(ii,jj,kk)%volc(1:znwet) &
-                                               - znfrac * aero(ii,jj,kk)%numc * zVexc * aero(ii,jj,kk)%volc(1:znwet) / &
-                                               sum(aero(ii,jj,kk)%volc(1:zndry))
+                     aero(ii,jj,mm)%volc(1:znwet) = aero(ii,jj,mm)%volc(1:znwet) + zvmove * aero(ii,jj,kk)%volc(1:znwet)
+
+                     aero(ii,jj,kk)%volc(1:znwet) = aero(ii,jj,kk)%volc(1:znwet) - zvmove * aero(ii,jj,kk)%volc(1:znwet)
 
                      !-- number
                      aero(ii,jj,mm)%numc = aero(ii,jj,mm)%numc + znfrac * aero(ii,jj,kk)%numc

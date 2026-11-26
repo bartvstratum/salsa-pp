@@ -137,9 +137,12 @@ namespace Salsa
                     if (volume_fraction < 0._tf)
                         Kokkos::abort("Error aerosol 0");
 
+                    // Fraction first, then times the volume; the four-factor product underflows in float.
+                    const TF volume_move_fraction = number_fraction*number[b]*v_excess/v_dry;
+
                     for (int s=0; s<n_species; ++s)
                     {
-                        const TF v_move = number_fraction*number[b]*v_excess*volume[b][s]/v_dry;
+                        const TF v_move = volume_move_fraction*volume[b][s];
                         volume[b+1][s] = volume[b+1][s] + v_move;
                         volume[b][s] = volume[b][s] - v_move;
                     }
