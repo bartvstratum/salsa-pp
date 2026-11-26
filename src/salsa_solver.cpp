@@ -480,6 +480,111 @@ namespace Salsa
     }
 
 
+    void Solver::equilibrate_aerosol_water(
+            const Array_4d<TF>& fields,
+            const Array_3d<const TF>& rv,
+            const Array_3d<const TF>& T,
+            const Array_3d<const TF>& rs,
+            const Array_1d<const TF>& rho,
+            const int istart,
+            const int iend,
+            const int jstart,
+            const int jend,
+            const int kstart,
+            const int kend)
+    {
+        const int n_bins = layout.n_bins;
+        const int n_species = layout.n_species;
+        const int n_dry = n_species - 1;
+
+        const int aer_1a_start = layout.aer_1a_start;
+        const int aer_1a_end = layout.aer_1a_end;
+        const int aer_2a_start = layout.aer_2a_start;
+        const int aer_2b_end = layout.aer_2b_end;
+
+        const int iso4 = this->iso4;
+        const int ioc = this->ioc;
+        const int ibc = this->ibc;
+        const int idu = this->idu;
+        const int iss = this->iss;
+        const int ino = this->ino;
+        const int inh = this->inh;
+        const int iwa = this->iwa;
+
+        const Array_1d<TF> density = this->density;
+        const Array_1d<TF> molar_mass = this->molar_mass;
+        const Array_1d<TF> diameter_mid = this->diameter_mid;
+        const Array_1d<TF> number_limit = this->number_limit;
+        const Array_1d<TF> diameter_limit = this->diameter_limit;
+
+        Kokkos::parallel_for("salsa_equilibrate_aerosol_water",
+                Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
+                KOKKOS_LAMBDA(const int k, const int j, const int i)
+                {
+                    Bin_array number;                       // m-3
+                    Bin_species_array volume;               // m3 m-3
+                    Bin_array d_wet;                        // m
+                    Bin_array core;                         // Dry volume of one particle (m3)
+
+                    const TF rho_ijk = rho(k);
+
+                    // State as in exec.
+                    for (int b=0; b<n_bins; ++b)
+                    {
+                        for (int s=0; s<n_species; ++s)
+                            volume[b][s] = fields(mass_field(b, s, n_species), k, j, i)*rho_ijk/density(s);
+
+                        number[b] = fields(number_field(b, n_species), k, j, i)*rho_ijk;
+
+                        if (number[b] > number_limit(b))
+                        {
+                            TF volume_dry = 0._tf;
+                            for (int s=0; s<n_dry; ++s)
+                                volume_dry += volume[b][s];
+
+                            core[b] = volume_dry/number[b];
+                        }
+                        else
+                        {
+                            const TF dm = diameter_mid(b);
+                            core[b] = pi6*(dm*dm*dm);
+                        }
+                    }
+
+                    update_wet_diameter(number, volume, d_wet, diameter_mid, diameter_limit, number_limit, n_species, n_bins);
+
+                    equilibrate_water(
+                            number,
+                            volume,
+                            d_wet,
+                            core,
+                            diameter_mid,
+                            density,
+                            molar_mass,
+                            rv(k, j, i)/rs(k, j, i),
+                            T(k, j, i),
+                            true,
+                            iso4,
+                            ioc,
+                            ibc,
+                            idu,
+                            iss,
+                            ino,
+                            inh,
+                            iwa,
+                            aer_1a_start,
+                            aer_1a_end,
+                            aer_2a_start,
+                            aer_2b_end);
+
+                    // Only the bins equilibrate_water computed.
+                    for (int b=aer_1a_start; b<aer_2b_end; ++b)
+                        if (number[b] > nlim)
+                            fields(mass_field(b, iwa, n_species), k, j, i) = volume[b][iwa]*density(iwa)/rho_ijk;
+                });
+    }
+
+
     void Solver::remove_small_particles(
             const Array_4d<TF>& fields,
             const Array_3d<const TF>& T,

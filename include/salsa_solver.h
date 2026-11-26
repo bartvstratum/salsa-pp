@@ -83,6 +83,22 @@ namespace Salsa
                     const int kstart,
                     const int kend);
 
+            // Overwrites the aerosol water (1a, 2a, 2b) on [istart, iend) x [jstart, jend) x [kstart, kend) with the
+            // equilibrium at RH = rv/rs, as equilibrate_water at initialisation (for an LES initial state). Dry
+            // species, number, cloud, gases and rv stay untouched; bins with number <= nlim keep their water.
+            void equilibrate_aerosol_water(
+                    const Array_4d<TF>& fields,                     // (n, k, j, i), per kg; in/out
+                    const Array_3d<const TF>& rv,                   // Water vapour mixing ratio (kg kg-1)
+                    const Array_3d<const TF>& T,                    // K
+                    const Array_3d<const TF>& rs,                   // Saturation mixing ratio over water (kg kg-1)
+                    const Array_1d<const TF>& rho,                  // (k), kg m-3
+                    const int istart,
+                    const int iend,
+                    const int jstart,
+                    const int jend,
+                    const int kstart,
+                    const int kend);
+
             // Fortran: constrain_SALSA.f90: SALSA_diagnostics (without clipping)
             // Removes small particles on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), on the
             // fields after the time integration, as UCLALES-SALSA after each step.
