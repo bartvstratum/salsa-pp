@@ -340,12 +340,17 @@ namespace
             const bool do_autoconversion = autoconversion_on && time >= autoconversion_delay;
             const bool free_rh = free_rh_on && time > free_rh_delay;
 
-            // Relative humidity at the start of the step, with the new saturation mixing ratio (Fortran: a_rh).
-            Kokkos::parallel_for("rh", Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
-                    KOKKOS_LAMBDA(const int k, const int j, const int i)
-                    {
-                        rh(k, j, i) = rv(k, j, i)/rs(k, j, i);
-                    });
+            // As the Fortran driver: SALSA_diagnostics at the start of every step (Fortran: a_rh).
+            if (!initialize)
+            {
+                Kokkos::parallel_for("rh", Range_3d({kstart, jstart, istart}, {kend, jend, iend}),
+                        KOKKOS_LAMBDA(const int k, const int j, const int i)
+                        {
+                            rh(k, j, i) = rv(k, j, i)/rs(k, j, i);
+                        });
+
+                solver.remove_small_particles(fields, T, rh, istart, iend, jstart, jend, kstart, kend);
+            }
 
             solver.exec(
                     fields_tend,
@@ -376,10 +381,6 @@ namespace
                 constrain_tendencies(fields, fields_tend, dt, istart, iend, jstart, jend, kstart, kend);
 
             integrate_forward_euler(fields, fields_tend, rv, rv_tend, dt, initialize, istart, iend, jstart, jend, kstart, kend);
-
-            // As the Fortran driver: SALSA_diagnostics after every step, with the RH of the start of the step.
-            if (!initialize)
-                solver.remove_small_particles(fields, T, rh, istart, iend, jstart, jend, kstart, kend);
         };
 
         Output output(output_file, case_name, input_file, read_text_file(namelist_file), layout);

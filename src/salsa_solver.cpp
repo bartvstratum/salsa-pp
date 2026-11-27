@@ -225,9 +225,11 @@ namespace Salsa
                     TF rv_ijk = free_rh ? rv_up : Kokkos::min(rv_up, rs_ijk*rh_limit);
 
                     const TF rv_old = rv_ijk;
+                    const TF rh_ijk = rv_up/rs_ijk;     // Fortran: a_rh
 
                     // Input cleanup per kg, as SALSA_diagnostics (BUGS.md 27): negative number and mass to zero,
-                    // bins with number but no or too little volume removed, their water to rv.
+                    // bins with number but no or too little volume removed, their water to rv; evaporated cloud
+                    // and rain back to aerosol.
                     for (int b=0; b<n_bins; ++b)
                     {
                         for (int s=0; s<n_species; ++s)
@@ -247,6 +249,26 @@ namespace Salsa
                         rv_ijk += empty_massless_bins(
                                 number_kg, mass_kg, n_species, aer_1a_start, aer_2b_end, cld_a_start, cld_b_end,
                                 rain_start, rain_end);
+
+                        evaporate_to_aerosol(
+                                number_kg,
+                                mass_kg,
+                                density,
+                                molar_mass,
+                                dissociation,
+                                diameter_low,
+                                T_ijk,
+                                rh_ijk,
+                                n_species,
+                                aer_2a_start,
+                                aer_2a_end,
+                                aer_2b_start,
+                                cld_a_start,
+                                cld_a_end,
+                                cld_b_start,
+                                cld_b_end,
+                                rain_start,
+                                rain_end);
 
                         rv_ijk += remove_tiny_aerosol(
                                 number_kg, mass_kg, gas_kg, density, do_condense_gases, iso4, ioc, ino, inh, n_species,

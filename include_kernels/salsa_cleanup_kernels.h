@@ -52,12 +52,11 @@ namespace Salsa
     // Fortran: constrain_SALSA.f90: findDry4Wet
     // Aerosol bin for evaporating rain bin b: the 2a bin of its dry diameter, or the parallel bin when only that
     // one holds particles; if both do, the one whose dry composition correlates best.
+    template<typename Number, typename Mass>
     KOKKOS_INLINE_FUNCTION
     int find_aerosol_bin_for_rain(
-            const Array_4d<TF>& fields,
-            const int k,
-            const int j,
-            const int i,
+            const Number& number,
+            const Mass& mass,
             const Array_1d<TF>& density,
             const Array_1d<TF>& diameter_low,
             const int b,
@@ -70,8 +69,8 @@ namespace Salsa
 
         TF d_dry = 0._tf;
         for (int s=0; s<n_dry; ++s)
-            d_dry = d_dry + fields(mass_field(b, s, n_species), k, j, i)/density(s);
-        d_dry = d_dry/fields(number_field(b, n_species), k, j, i);
+            d_dry = d_dry + mass(b, s)/density(s);
+        d_dry = d_dry/number(b);
         d_dry = Kokkos::pow(d_dry/pi6, 1._tf/3._tf);
 
         int n_larger = 0;
@@ -83,9 +82,9 @@ namespace Salsa
 
         const int b_b = aer_2b_start + (b_a - aer_2a_start);
 
-        if (fields(number_field(b_b, n_species), k, j, i) <= nlim)
+        if (number(b_b) <= nlim)
             return b_a;
-        else if (fields(number_field(b_a, n_species), k, j, i) <= nlim)
+        else if (number(b_a) <= nlim)
             return b_b;
         else
         {
@@ -95,9 +94,9 @@ namespace Salsa
 
             for (int s=0; s<n_dry; ++s)
             {
-                mass_rain[s] = fields(mass_field(b, s, n_species), k, j, i);
-                mass_a[s] = fields(mass_field(b_a, s, n_species), k, j, i);
-                mass_b[s] = fields(mass_field(b_b, s, n_species), k, j, i);
+                mass_rain[s] = mass(b, s);
+                mass_a[s] = mass(b_a, s);
+                mass_b[s] = mass(b_b, s);
             }
 
             const TF r_a = correlation(mass_a, mass_rain, n_dry);
@@ -223,6 +222,112 @@ namespace Salsa
     }
 
 
+    // Fortran: constrain_SALSA.f90: SALSA_diagnostics (part)
+    // In subsaturated air, cloud and rain bins with small drops go to an aerosol bin, with their water
+    // (accessors return references to per-kg values).
+    template<typename Number, typename Mass>
+    KOKKOS_INLINE_FUNCTION
+    void evaporate_to_aerosol(
+            const Number& number,
+            const Mass& mass,
+            const Array_1d<TF>& density,
+            const Array_1d<TF>& molar_mass,
+            const Array_1d<TF>& dissociation,
+            const Array_1d<TF>& diameter_low,
+            const TF T,
+            const TF rh,
+            const int n_species,
+            const int aer_2a_start,
+            const int aer_2a_end,
+            const int aer_2b_start,
+            const int cld_a_start,
+            const int cld_a_end,
+            const int cld_b_start,
+            const int cld_b_end,
+            const int rain_start,
+            const int rain_end)
+    {
+        const int n_dry = n_species - 1;
+        const int iwa = n_species - 1;
+        const TF mass_threshold = 1.e-25_tf;           // Fortran: massTH
+
+        // Moves number and mass of bin b to aerosol bin b_aer.
+        auto move_to_aerosol = [&](const int b, const int b_aer)
+        {
+            number(b_aer) = number(b_aer) + number(b);
+            number(b) = 0._tf;
+
+            for (int s=0; s<n_species; ++s)
+            {
+                mass(b_aer, s) = mass(b_aer, s) + mass(b, s);
+                mass(b, s) = 0._tf;
+            }
+        };
+
+        // Wet diameter, and critical diameter from the Raoult and Kelvin terms.
+        auto diameters = [&](const int b, TF& d_wet, TF& d_critical)
+        {
+            TF moles = 0._tf;
+            for (int s=0; s<n_dry; ++s)
+                moles = moles + dissociation(s)*mass(b, s)/molar_mass(s);
+            moles = moles/number(b);
+
+            const TF raoult = 6._tf*mwa*moles/(pi*rhowa);
+            const TF kelvin = 4._tf*mwa*surfw0/(rg*rhowa*T);
+            d_critical = Kokkos::sqrt(3._tf*raoult/kelvin);
+
+            TF volume = 0._tf;
+            for (int s=0; s<n_species; ++s)
+                volume = volume + mass(b, s)/density(s);
+            volume = volume/number(b);
+            d_wet = Kokkos::pow(volume/pi6, 1._tf/3._tf);
+        };
+
+        // Evaporated cloud droplets to the parallel aerosol bin.
+        for (int b=cld_a_start; b<cld_b_end; ++b)
+        {
+            if (number(b) > nlim && rh < 0.999_tf && mass(b, iwa) < 1.e-5_tf)
+            {
+                TF d_wet;
+                TF d_critical;
+                diameters(b, d_wet, d_critical);
+
+                if (d_wet < Kokkos::min(0.7_tf*d_critical, 1.3e-5_tf) || mass(b, iwa) < mass_threshold*number(b))
+                {
+                    const int b_aer = (b < cld_a_end) ? aer_2a_start + (b - cld_a_start) : aer_2b_start + (b - cld_b_start);
+                    move_to_aerosol(b, b_aer);
+                }
+            }
+        }
+
+        // Evaporated rain drops to the aerosol bin of their dry size and composition.
+        for (int b=rain_start; b<rain_end; ++b)
+        {
+            if (number(b) > prlim && rh < 0.999_tf && mass(b, iwa) < 1.e-6_tf)
+            {
+                TF d_wet;
+                TF d_critical;
+                diameters(b, d_wet, d_critical);
+
+                if (d_wet < Kokkos::min(0.2_tf*d_critical, 10.e-6_tf) || mass(b, iwa) < mass_threshold*number(b))
+                {
+                    const int b_aer = find_aerosol_bin_for_rain(
+                            number,
+                            mass,
+                            density,
+                            diameter_low,
+                            b,
+                            n_species,
+                            aer_2a_start,
+                            aer_2a_end,
+                            aer_2b_start);
+                    move_to_aerosol(b, b_aer);
+                }
+            }
+        }
+    }
+
+
     // Fortran: constrain_SALSA.f90: SALSA_diagnostics (without clipping, ice and charge)
     // On the fields of one grid point (per kg): bins with number but no mass are emptied; in subsaturated air,
     // cloud and rain bins with small drops go to an aerosol bin; aerosol below 0.1 nm dry diameter is removed,
@@ -258,10 +363,6 @@ namespace Salsa
             const int rain_end,
             const int n_bins)
     {
-        const int n_dry = n_species - 1;
-        const int iwa = n_species - 1;
-        const TF mass_threshold = 1.e-25_tf;           // Fortran: massTH
-
         auto number = [&](const int b) -> TF&
         {
             return fields(number_field(b, n_species), k, j, i);
@@ -277,75 +378,28 @@ namespace Salsa
             return fields(gas_field(g, n_bins, n_species), k, j, i);
         };
 
-        // Moves number and mass of bin b to aerosol bin b_aer.
-        auto move_to_aerosol = [&](const int b, const int b_aer)
-        {
-            number(b_aer) = number(b_aer) + number(b);
-            number(b) = 0._tf;
-
-            for (int s=0; s<n_species; ++s)
-            {
-                mass(b_aer, s) = mass(b_aer, s) + mass(b, s);
-                mass(b, s) = 0._tf;
-            }
-        };
-
-        // Wet diameter, and critical diameter from the Raoult and Kelvin terms.
-        auto diameters = [&](const int b, TF& d_wet, TF& d_critical)
-        {
-            TF moles = 0._tf;
-            for (int s=0; s<n_dry; ++s)
-                moles = moles + dissociation(s)*mass(b, s)/molar_mass(s);
-            moles = moles/number(b);
-
-            const TF raoult = 6._tf*mwa*moles/(pi*rhowa);
-            const TF kelvin = 4._tf*mwa*surfw0/(rg*rhowa*T);
-            d_critical = Kokkos::sqrt(3._tf*raoult/kelvin);
-
-            TF volume = 0._tf;
-            for (int s=0; s<n_species; ++s)
-                volume = volume + mass(b, s)/density(s);
-            volume = volume/number(b);
-            d_wet = Kokkos::pow(volume/pi6, 1._tf/3._tf);
-        };
-
         // Bins with number but no mass (their water is lost, as in the Fortran).
         empty_massless_bins(number, mass, n_species, aer_1a_start, aer_2b_end, cld_a_start, cld_b_end, rain_start, rain_end);
 
-        // Evaporated cloud droplets to the parallel aerosol bin.
-        for (int b=cld_a_start; b<cld_b_end; ++b)
-        {
-            if (number(b) > nlim && rh < 0.999_tf && mass(b, iwa) < 1.e-5_tf)
-            {
-                TF d_wet;
-                TF d_critical;
-                diameters(b, d_wet, d_critical);
-
-                if (d_wet < Kokkos::min(0.7_tf*d_critical, 1.3e-5_tf) || mass(b, iwa) < mass_threshold*number(b))
-                {
-                    const int b_aer = (b < cld_a_end) ? aer_2a_start + (b - cld_a_start) : aer_2b_start + (b - cld_b_start);
-                    move_to_aerosol(b, b_aer);
-                }
-            }
-        }
-
-        // Evaporated rain drops to the aerosol bin of their dry size and composition.
-        for (int b=rain_start; b<rain_end; ++b)
-        {
-            if (number(b) > prlim && rh < 0.999_tf && mass(b, iwa) < 1.e-6_tf)
-            {
-                TF d_wet;
-                TF d_critical;
-                diameters(b, d_wet, d_critical);
-
-                if (d_wet < Kokkos::min(0.2_tf*d_critical, 10.e-6_tf) || mass(b, iwa) < mass_threshold*number(b))
-                {
-                    const int b_aer = find_aerosol_bin_for_rain(
-                            fields, k, j, i, density, diameter_low, b, n_species, aer_2a_start, aer_2a_end, aer_2b_start);
-                    move_to_aerosol(b, b_aer);
-                }
-            }
-        }
+        evaporate_to_aerosol(
+                number,
+                mass,
+                density,
+                molar_mass,
+                dissociation,
+                diameter_low,
+                T,
+                rh,
+                n_species,
+                aer_2a_start,
+                aer_2a_end,
+                aer_2b_start,
+                cld_a_start,
+                cld_a_end,
+                cld_b_start,
+                cld_b_end,
+                rain_start,
+                rain_end);
 
         // Aerosol below 0.1 nm dry diameter (water lost, as in the Fortran).
         remove_tiny_aerosol(

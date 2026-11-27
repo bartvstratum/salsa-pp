@@ -6,7 +6,8 @@
 ! the state is set up by setPrognosticVariables/setDiagnosticVariables, run_SALSA computes the SALSA tendencies,
 ! and SALSA_diagnostics moves evaporated cloud and rain back to aerosol. The sequence follows UCLALES-SALSA:
 ! - initialisation (init.f90): one run_SALSA call with initialize = .true., tendencies applied with clipping at zero;
-! - every time step (step.f90): run_SALSA, tend_constrain2, forward Euler update, SALSA_diagnostics.
+! - every time step (step.f90): run_SALSA, tend_constrain2, forward Euler update, SALSA_diagnostics;
+!   here SALSA_diagnostics runs first, before run_SALSA, as SALSA++ cleans the state at the start of `exec`.
 ! Settings are read from the file NAMELIST (&salsa for SALSA, &driver for this driver); forcing and initial
 ! conditions from the NetCDF input file.
 program salsa_0d
@@ -108,14 +109,13 @@ program salsa_0d
 
         call set_thermodynamics(d%temperature(istp+1), d%pressure(istp+1))
         a_rh%d = a_rp%d/a_rsl%d
+        call SALSA_diagnostics(.false., .false.)
 
         call run_SALSA(Diag, Prog, nzp, nxp, nyp, nwet, wp, nactd, vactd, dt, (istp-1)*dt, istp, level, .false., .false.)
         call tend_constrain2()
         a_sclrp(kp:nzp-1,ip:nxp-2,jp:nyp-2,:) = a_sclrp(kp:nzp-1,ip:nxp-2,jp:nyp-2,:) &
                                               + dt*a_sclrt(kp:nzp-1,ip:nxp-2,jp:nyp-2,:)
         a_sclrt = 0.
-        call SALSA_diagnostics(.false., .false.)
-        a_rh%d = a_rp%d/a_rsl%d
 
         call write_output(istp*dt)
     end do

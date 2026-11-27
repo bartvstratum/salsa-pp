@@ -57,7 +57,8 @@ namespace Salsa
             // fields and of rv over dt as tendencies, as run_SALSA in UCLALES-SALSA. The host applies them.
             // Starts from fields + dt*fields_tend and rv + dt*rv_tend; the change is limited so that no field
             // becomes negative. That start state is first cleaned as SALSA_diagnostics (negatives to zero, bins
-            // with number but no or too little volume removed, their water to rv).
+            // with number but no or too little volume removed, their water to rv; evaporated cloud and rain back
+            // to aerosol).
             void exec(
                     const Array_4d<TF>& fields_tend,                // (n, k, j, i), per s; in: other processes
                     const Array_3d<TF>& rv_tend,                    // kg kg-1 s-1; in: other processes
@@ -100,12 +101,12 @@ namespace Salsa
                     const int kend);
 
             // Fortran: constrain_SALSA.f90: SALSA_diagnostics (without clipping)
-            // Removes small particles on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), on the
-            // fields after the time integration, as UCLALES-SALSA after each step.
+            // Removes small particles on the grid points [istart, iend) x [jstart, jend) x [kstart, kend), in place;
+            // the same cleanup that `exec` applies to its start state.
             void remove_small_particles(
                     const Array_4d<TF>& fields,                     // (n, k, j, i), n in the order of the layout
                     const Array_3d<const TF>& T,                    // K
-                    const Array_3d<const TF>& rh,                   // Relative humidity at the start of the step
+                    const Array_3d<const TF>& rh,                   // Relative humidity
                     const int istart,
                     const int iend,
                     const int jstart,
